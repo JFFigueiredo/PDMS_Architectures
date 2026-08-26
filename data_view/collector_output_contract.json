@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "description": "Stable file naming and panel-to-file mapping contract for historical Prometheus exports.",
+  "naming_rule": "snake_case semantic name, one metric intent per file, suffix .json",
+  "required_manifest": "queries_manifest.json",
+  "outputs": [
+    {
+      "panel_title": "HTTP Request Rate by Endpoint",
+      "output_file": "http_request_rate_by_endpoint.json",
+      "legacy_file": "metrics_rps.json"
+    },
+    {
+      "panel_title": "HTTP Max Response Time",
+      "output_file": "http_response_time_max.json",
+      "legacy_file": "metrics_p999_latency.json"
+    },
+    {
+      "panel_title": "HTTP Mean Response Time",
+      "output_file": "http_response_time_mean.json",
+      "legacy_file": "metrics_http_mean_latency.json"
+    },
+    {
+      "panel_title": "HTTP Response Time Percentiles (p99)",
+      "output_file": "http_response_time_percentile_p99.json",
+      "legacy_file": "metrics_p99_latency.json"
+    },
+    {
+      "panel_title": "HTTP Response Time Percentiles (p95)",
+      "output_file": "http_response_time_percentile_p95.json",
+      "legacy_file": "metrics_p95_latency.json"
+    },
+    {
+      "panel_title": "HTTP Response Time Percentiles (p50)",
+      "output_file": "http_response_time_percentile_p50.json",
+      "legacy_file": "metrics_p50_latency.json"
+    },
+    {
+      "panel_title": "HTTP Status Codes",
+      "output_file": "http_status_codes_by_status.json",
+      "legacy_file": "metrics_http_rps_by_status.json"
+    },
+    {
+      "panel_title": "HTTP Success Rate",
+      "output_file": "http_success_rate_percentage.json",
+      "legacy_file": "metrics_http_success_percentage.json"
+    },
+    {
+      "panel_title": "Database Connection Pool - Active/Idle/Pending",
+      "output_file": "db_connections_active_idle_pending.json",
+      "legacy_file": "metrics_db_connections_active.json|metrics_db_connections_idle.json|metrics_db_connections_pending.json"
+    },
+    {
+      "panel_title": "JVM Class Loading",
+      "output_file": "jvm_classes_loaded.json",
+      "legacy_file": "metrics_classes_loaded.json"
+    },
+    {
+      "panel_title": "JVM Heap Memory",
+      "output_file": "jvm_heap_used_max_committed.json",
+      "legacy_file": "metrics_heap_used.json|metrics_heap_max.json|metrics_heap_committed.json"
+    },
+    {
+      "panel_title": "JVM Threads",
+      "output_file": "jvm_threads_live_daemon_peak.json",
+      "legacy_file": "metrics_threads_active.json|metrics_threads_daemon.json|metrics_threads_peak.json"
+    },
+    {
+      "panel_title": "GC Pause Time & Rate",
+      "output_file": "jvm_gc_pause_time_and_count.json",
+      "legacy_file": "metrics_gc_pause_time.json|metrics_gc_count.json"
+    },
+    {
+      "panel_title": "Kafka Consumer Lag",
+      "output_file": "kafka_consumer_lag.json",
+      "legacy_file": "metrics_kafka_consumer_lag.json"
+    },
+    {
+      "panel_title": "CPU Usage",
+      "output_file": "system_cpu_usage_percent.json",
+      "legacy_file": "metrics_cpu.json"
+    }
+  ]
+}

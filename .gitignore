@@ -1,0 +1,22 @@
+# Build output
+**/target/
+
+# JWT signing keys — generate locally (see DEPLOYMENT_GUIDE.md)
+**/jwt-keys/
+**/*.pem
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# OS / Python
+.DS_Store
+**/__pycache__/
+**/*.pyc
+**/.venv*/
+
+# Out of scope for the public harness repo
+pdms-modular-monolith-cqrs.zip
+*.bak
+*.bak_*

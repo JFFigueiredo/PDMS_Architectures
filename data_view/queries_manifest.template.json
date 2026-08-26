@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "generated_at_utc": "2026-04-27T00:00:00Z",
+  "source": {
+    "collector_script": "collect_prometheus_metrics.sh",
+    "prometheus_url": "http://localhost:9090",
+    "range": {
+      "start_ts": 0,
+      "end_ts": 0,
+      "step": "15s"
+    }
+  },
+  "items": [
+    {
+      "panel_title": "HTTP Request Rate by Endpoint",
+      "query": "sum(rate(http_server_requests_seconds_count{uri!~\"/actuator.*\"}[1m])) by (method, uri)",
+      "output_file": "http_request_rate_by_endpoint.json",
+      "result_type": "matrix",
+      "notes": "Core traffic panel"
+    },
+    {
+      "panel_title": "HTTP Max Response Time",
+      "query": "max(http_server_requests_seconds_max{uri!~\"/actuator.*\"}) by (method, uri)",
+      "output_file": "http_response_time_max.json",
+      "result_type": "matrix",
+      "notes": "Use seconds unit in Grafana"
+    },
+    {
+      "panel_title": "HTTP Mean Response Time",
+      "query": "rate(http_server_requests_seconds_sum{uri!~\"/actuator.*\"}[1m]) / rate(http_server_requests_seconds_count{uri!~\"/actuator.*\"}[1m])",
+      "output_file": "http_response_time_mean.json",
+      "result_type": "matrix"
+    },
+    {
+      "panel_title": "HTTP Success Rate",
+      "query": "(sum(rate(http_server_requests_seconds_count{uri!~\"/actuator.*\",status=~\"2..\"}[1m])) / sum(rate(http_server_requests_seconds_count{uri!~\"/actuator.*\"}[1m]))) * 100",
+      "output_file": "http_success_rate_percentage.json",
+      "result_type": "matrix",
+      "notes": "Expected as single series percentage"
+    },
+    {
+      "panel_title": "HTTP Status Codes",
+      "query": "sum(rate(http_server_requests_seconds_count{uri!~\"/actuator.*\"}[1m])) by (status)",
+      "output_file": "http_status_codes_by_status.json",
+      "result_type": "matrix"
+    }
+  ]
+}

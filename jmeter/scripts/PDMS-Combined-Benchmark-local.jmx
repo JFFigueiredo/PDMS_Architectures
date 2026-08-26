@@ -1,0 +1,2516 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="PDMS - Combined Benchmark Test">
+      <stringProp name="TestPlan.comments">Combined JMeter test plan for PDMS system benchmarking. Includes:
+- Person Operations: Create, Read, Update, Delete
+- Consents Operations: Create, List, Update, Withdraw, Delete  
+- Snapshot Operations: Get by Person ID, Email, Phone
+- Mixed Benchmark: Real-world scenario combining all operations
+
+Individual test suites are disabled by default. Enable them for isolated testing.
+The Mixed Benchmark Thread Group simulates realistic system load.</stringProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="BASE_URL" elementType="Argument">
+            <stringProp name="Argument.name">BASE_URL</stringProp>
+            <stringProp name="Argument.value">http://127.0.0.1:8080</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="JWT_TOKEN" elementType="Argument">
+            <stringProp name="Argument.name">JWT_TOKEN</stringProp>
+            <stringProp name="Argument.value"></stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PERSON_IDS_FILE" elementType="Argument">
+            <stringProp name="Argument.name">PERSON_IDS_FILE</stringProp>
+            <stringProp name="Argument.value">person_id_for_consents.csv</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="IDENTITIES_FILE" elementType="Argument">
+            <stringProp name="Argument.name">IDENTITIES_FILE</stringProp>
+            <stringProp name="Argument.value">identities_person.csv</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="SCENARIO_NAME" elementType="Argument">
+            <stringProp name="Argument.name">SCENARIO_NAME</stringProp>
+            <stringProp name="Argument.value">mixed</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+    </TestPlan>
+    <hashTree>
+      <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Extract Domain from BASE_URL">
+        <stringProp name="cacheKey">true</stringProp>
+        <stringProp name="filename"></stringProp>
+        <stringProp name="parameters"></stringProp>
+        <stringProp name="script">String baseUrl = props.get(&quot;base_url&quot;)
+if (baseUrl == null || baseUrl.isEmpty()) {
+    baseUrl = &quot;http://<app-host>&quot;
+}
+baseUrl = baseUrl.replaceAll(&quot;^https?://&quot;, &quot;&quot;)
+String domain = baseUrl.split(&quot;:&quot;)[0]
+vars.put(&quot;DOMAIN&quot;, domain)
+log.info(&quot;Using domain: &quot; + domain)</stringProp>
+        <stringProp name="scriptLanguage">groovy</stringProp>
+      </JSR223PreProcessor>
+      <hashTree/>
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config - Person IDs" enabled="true">
+        <stringProp name="delimiter">,</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="filename">${PERSON_IDS_FILE}</stringProp>
+        <boolProp name="ignoreFirstLine">false</boolProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">true</boolProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+        <boolProp name="stopThread">false</boolProp>
+        <stringProp name="variableNames">PERSON_ID</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config - Identities" enabled="true">
+        <stringProp name="delimiter">,</stringProp>
+        <stringProp name="fileEncoding">UTF-8</stringProp>
+        <stringProp name="filename">${IDENTITIES_FILE}</stringProp>
+        <boolProp name="ignoreFirstLine">true</boolProp>
+        <boolProp name="quotedData">false</boolProp>
+        <boolProp name="recycle">true</boolProp>
+        <stringProp name="shareMode">shareMode.all</stringProp>
+        <boolProp name="stopThread">false</boolProp>
+        <stringProp name="variableNames">EMAIL,PHONE</stringProp>
+      </CSVDataSet>
+      <hashTree/>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Person Operations - CRUD" enabled="false">
+        <intProp name="ThreadGroup.num_threads">25</intProp>
+        <intProp name="ThreadGroup.ramp_time">2</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Random Consent Type" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+
+// Random consent types (weighted distribution across 13 types)
+String[] consentTypes = [&quot;MARKETING&quot;, &quot;MARKETING&quot;, &quot;MARKETING&quot;, &quot;MARKETING&quot;, &quot;MARKETING&quot;,
+                        &quot;ANALYTICS&quot;, &quot;ANALYTICS&quot;, &quot;ANALYTICS&quot;,
+                        &quot;DATA_PROCESSING&quot;, &quot;DATA_PROCESSING&quot;,
+                        &quot;COMMUNICATION&quot;, &quot;COMMUNICATION&quot;,
+                        &quot;PROFILING&quot;, &quot;PROFILING&quot;,
+                        &quot;LOCATION&quot;,
+                        &quot;BIOMETRIC&quot;,
+                        &quot;HEALTH_DATA&quot;,
+                        &quot;FINANCIAL&quot;,
+                        &quot;SOCIAL_MEDIA&quot;,
+                        &quot;THIRD_PARTY_SHARING&quot;,
+                        &quot;RESEARCH&quot;,
+                        &quot;AUTOMATED_DECISION_MAKING&quot;]
+String consentType = consentTypes[random.nextInt(consentTypes.length)]
+vars.put(&quot;CONSENT_TYPE&quot;, consentType)
+
+log.debug(&quot;Generated random consent type: &quot; + consentType)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Email and Phone Variables" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+int threadNum = ctx.getThreadNum()
+long timestamp = System.currentTimeMillis()
+int randomNum = random.nextInt(90000) + 10000
+int randomPhoneNum = random.nextInt(9000) + 1000
+
+// Generate unique email
+String email = &quot;test-&quot; + threadNum + &quot;-&quot; + timestamp + &quot;-&quot; + randomNum + &quot;@example.com&quot;
+vars.put(&quot;EMAIL&quot;, email)
+vars.put(&quot;EMAIL_ENCODED&quot;, java.net.URLEncoder.encode(email, &quot;UTF-8&quot;))
+
+// Generate unique phone
+String phone = &quot;+1-555-&quot; + threadNum + timestamp + randomPhoneNum
+vars.put(&quot;PHONE&quot;, phone)
+vars.put(&quot;PHONE_ENCODED&quot;, java.net.URLEncoder.encode(phone, &quot;UTF-8&quot;))
+
+log.debug(&quot;Generated EMAIL: &quot; + email + &quot; - Encoded: &quot; + vars.get(&quot;EMAIL_ENCODED&quot;))
+log.debug(&quot;Generated PHONE: &quot; + phone + &quot; - Encoded: &quot; + vars.get(&quot;PHONE_ENCODED&quot;))</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="1. Create Person" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(person_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&#xd;
+  &quot;status&quot;: &quot;ACTIVE&quot;,&#xd;
+  &quot;userAccount&quot;: {&#xd;
+    &quot;type&quot;: &quot;STANDARD&quot;,&#xd;
+    &quot;firstName&quot;: &quot;John&quot;,&#xd;
+    &quot;lastName&quot;: &quot;Doe&quot;,&#xd;
+    &quot;surname&quot;: &quot;Smith&quot;,&#xd;
+    &quot;password&quot;: &quot;SecurePass123&quot;,&#xd;
+    &quot;taxNumber&quot;: &quot;123456789&quot;,&#xd;
+    &quot;dateOfBirth&quot;: &quot;1990-01-15T00:00:00Z&quot;,&#xd;
+    &quot;gender&quot;: &quot;MALE&quot;,&#xd;
+    &quot;nationality&quot;: &quot;American&quot;&#xd;
+  },&#xd;
+  &quot;contactIdentities&quot;: [&#xd;
+    {&#xd;
+      &quot;type&quot;: &quot;EMAIL&quot;,&#xd;
+      &quot;value&quot;: &quot;${EMAIL}&quot;,&#xd;
+      &quot;primary&quot;: true&#xd;
+    },&#xd;
+    {&#xd;
+      &quot;type&quot;: &quot;PHONE&quot;,&#xd;
+      &quot;value&quot;: &quot;${PHONE}&quot;,&#xd;
+      &quot;primary&quot;: false&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;addresses&quot;: [&#xd;
+    {&#xd;
+      &quot;addressType&quot;: &quot;HOME&quot;,&#xd;
+      &quot;country&quot;: &quot;United States&quot;,&#xd;
+      &quot;postalCode&quot;: &quot;12345&quot;,&#xd;
+      &quot;city&quot;: &quot;New York&quot;,&#xd;
+      &quot;street&quot;: &quot;Main Street&quot;,&#xd;
+      &quot;streetNumber&quot;: &quot;123&quot;,&#xd;
+      &quot;isPrimary&quot;: true,&#xd;
+      &quot;verifiedAddress&quot;: true&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;consents&quot;: [&#xd;
+    {&#xd;
+      &quot;consentType&quot;: &quot;${CONSENT_TYPE}&quot;,&#xd;
+      &quot;granted&quot;: true,&#xd;
+      &quot;grantedAt&quot;: &quot;2024-01-01T00:00:00Z&quot;,&#xd;
+      &quot;consentMethod&quot;: &quot;WEB_FORM&quot;,&#xd;
+      &quot;consentVersion&quot;: &quot;v1.0&quot;,&#xd;
+      &quot;isActive&quot;: true&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;preferences&quot;: {&#xd;
+    &quot;language&quot;: &quot;en&quot;,&#xd;
+    &quot;nickname&quot;: &quot;Johnny&quot;&#xd;
+  }&#xd;
+}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">201</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - personId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">PERSON_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.personId</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Extract Email and Phone from Response" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">import groovy.json.JsonSlurper
+
+// Get the response data
+String responseData = prev.getResponseDataAsString()
+
+if (responseData != null &amp;&amp; !responseData.isEmpty()) {
+    try {
+        def json = new JsonSlurper().parseText(responseData)
+        
+        // Extract PERSON_ID if not already set
+        if (json.personId != null) {
+            vars.put(&quot;PERSON_ID&quot;, json.personId.toString())
+        }
+        
+        // Extract EMAIL from contactIdentities array
+        if (json.contactIdentities != null) {
+            def emailIdentity = json.contactIdentities.find { it.type == &quot;EMAIL&quot; }
+            if (emailIdentity != null &amp;&amp; emailIdentity.value != null) {
+                String email = emailIdentity.value.toString()
+                vars.put(&quot;EMAIL&quot;, email)
+                vars.put(&quot;EMAIL_ENCODED&quot;, java.net.URLEncoder.encode(email, &quot;UTF-8&quot;))
+            }
+            
+            // Extract PHONE from contactIdentities array
+            def phoneIdentity = json.contactIdentities.find { it.type == &quot;PHONE&quot; }
+            if (phoneIdentity != null &amp;&amp; phoneIdentity.value != null) {
+                String phone = phoneIdentity.value.toString()
+                vars.put(&quot;PHONE&quot;, phone)
+                vars.put(&quot;PHONE_ENCODED&quot;, java.net.URLEncoder.encode(phone, &quot;UTF-8&quot;))
+            }
+        }
+        
+        log.debug(&quot;Extracted PERSON_ID: &quot; + vars.get(&quot;PERSON_ID&quot;))
+        log.debug(&quot;Extracted EMAIL: &quot; + vars.get(&quot;EMAIL&quot;) + &quot; - Encoded: &quot; + vars.get(&quot;EMAIL_ENCODED&quot;))
+        log.debug(&quot;Extracted PHONE: &quot; + vars.get(&quot;PHONE&quot;) + &quot; - Encoded: &quot; + vars.get(&quot;PHONE_ENCODED&quot;))
+    } catch (Exception e) {
+        log.error(&quot;Error parsing JSON response: &quot; + e.getMessage())
+    }
+}</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="2. Get Person" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(person_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="3. Update Person" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(person_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">PUT</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&#xd;
+  &quot;status&quot;: &quot;ACTIVE&quot;,&#xd;
+  &quot;userAccount&quot;: {&#xd;
+    &quot;type&quot;: &quot;STANDARD&quot;,&#xd;
+    &quot;firstName&quot;: &quot;Jane&quot;,&#xd;
+    &quot;lastName&quot;: &quot;Smith&quot;,&#xd;
+    &quot;surname&quot;: &quot;Updated&quot;,&#xd;
+    &quot;password&quot;: &quot;SecurePass456&quot;,&#xd;
+    &quot;taxNumber&quot;: &quot;987654321&quot;,&#xd;
+    &quot;dateOfBirth&quot;: &quot;1992-05-20T00:00:00Z&quot;,&#xd;
+    &quot;gender&quot;: &quot;FEMALE&quot;,&#xd;
+    &quot;nationality&quot;: &quot;British&quot;&#xd;
+  },&#xd;
+  &quot;contactIdentities&quot;: [&#xd;
+    {&#xd;
+      &quot;type&quot;: &quot;EMAIL&quot;,&#xd;
+      &quot;value&quot;: &quot;updated-${__threadNum}-${__time()}-${__Random(10000,99999)}@example.com&quot;,&#xd;
+      &quot;primary&quot;: true&#xd;
+    },&#xd;
+    {&#xd;
+      &quot;type&quot;: &quot;PHONE&quot;,&#xd;
+      &quot;value&quot;: &quot;+44-555-${__threadNum}${__time(,)}${__Random(1000,9999)}&quot;,&#xd;
+      &quot;primary&quot;: false&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;addresses&quot;: [&#xd;
+    {&#xd;
+      &quot;addressType&quot;: &quot;HOME&quot;,&#xd;
+      &quot;country&quot;: &quot;United Kingdom&quot;,&#xd;
+      &quot;postalCode&quot;: &quot;SW1A 1AA&quot;,&#xd;
+      &quot;city&quot;: &quot;London&quot;,&#xd;
+      &quot;street&quot;: &quot;Baker Street&quot;,&#xd;
+      &quot;streetNumber&quot;: &quot;221B&quot;,&#xd;
+      &quot;isPrimary&quot;: true,&#xd;
+      &quot;verifiedAddress&quot;: true&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;consents&quot;: [&#xd;
+    {&#xd;
+      &quot;consentType&quot;: &quot;${CONSENT_TYPE}&quot;,&#xd;
+      &quot;granted&quot;: false,&#xd;
+      &quot;grantedAt&quot;: &quot;2024-06-01T00:00:00Z&quot;,&#xd;
+      &quot;consentMethod&quot;: &quot;WEB_FORM&quot;,&#xd;
+      &quot;consentVersion&quot;: &quot;v2.0&quot;,&#xd;
+      &quot;isActive&quot;: true&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;preferences&quot;: {&#xd;
+    &quot;language&quot;: &quot;en-GB&quot;,&#xd;
+    &quot;nickname&quot;: &quot;Janey&quot;&#xd;
+  }&#xd;
+}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="4. Delete Person" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(person_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">DELETE</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Consents Operations - CRUD" enabled="false">
+        <intProp name="ThreadGroup.num_threads">10</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate PERSON_ID" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">// Validate that PERSON_ID is set
+String personId = vars.get(&quot;PERSON_ID&quot;)
+if (personId == null || personId.isEmpty() || personId.equals(&quot;&lt;EOF&gt;&quot;) || personId.trim().isEmpty()) {
+    log.warn(&quot;PERSON_ID is empty, using placeholder&quot;)
+    vars.put(&quot;PERSON_ID&quot;, &quot;00000000-0000-0000-0000-000000000000&quot;)
+} else {
+    log.debug(&quot;PERSON_ID is valid: &quot; + personId)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Random Consent Data" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.Random
+
+Random random = new Random()
+
+// Random consent types
+String[] consentTypes = [&quot;MARKETING&quot;, &quot;DATA_PROCESSING&quot;, &quot;COMMUNICATION&quot;, &quot;PROFILING&quot;,
+                        &quot;LOCATION&quot;, &quot;BIOMETRIC&quot;, &quot;HEALTH_DATA&quot;, &quot;FINANCIAL&quot;,
+                        &quot;SOCIAL_MEDIA&quot;, &quot;THIRD_PARTY_SHARING&quot;, &quot;RESEARCH&quot;,
+                        &quot;AUTOMATED_DECISION_MAKING&quot;]
+String consentType = consentTypes[random.nextInt(consentTypes.length)]
+vars.put(&quot;CONSENT_TYPE&quot;, consentType)
+
+// Random consent methods
+String[] consentMethods = [&quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;, &quot;EMAIL&quot;]
+String consentMethod = consentMethods[random.nextInt(consentMethods.length)]
+vars.put(&quot;CONSENT_METHOD&quot;, consentMethod)
+
+// Random consent versions
+String[] consentVersions = [&quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.1&quot;, &quot;v1.1&quot;, &quot;v2.0&quot;, &quot;v2.1&quot;]
+String consentVersion = consentVersions[random.nextInt(consentVersions.length)]
+vars.put(&quot;CONSENT_VERSION&quot;, consentVersion)
+
+// Random granted status (85% granted)
+boolean granted = random.nextDouble() &lt; 0.85
+vars.put(&quot;CONSENT_GRANTED&quot;, String.valueOf(granted))
+
+// Build JSON payload
+String jsonPayload = &quot;{\n&quot; +
+    &quot;  \&quot;consentType\&quot;: \&quot;&quot; + consentType + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;granted\&quot;: &quot; + granted + &quot;,\n&quot; +
+    &quot;  \&quot;consentMethod\&quot;: \&quot;&quot; + consentMethod + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;consentVersion\&quot;: \&quot;&quot; + consentVersion + &quot;\&quot;\n&quot; +
+    &quot;}&quot;
+
+vars.put(&quot;CONSENT_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="1. Create Consent" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">${CONSENT_JSON_PAYLOAD}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">201</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="2. List Consents" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="3. Get List Consents (for Withdraw)" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - consentId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">CONSENT_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$[0].id</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Withdraw" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for withdraw, skipping WITHDRAW operation&quot;)
+    vars.put(&quot;SKIP_WITHDRAW&quot;, &quot;true&quot;)
+} else {
+    vars.put(&quot;SKIP_WITHDRAW&quot;, &quot;false&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Withdrawal Reason" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+String[] withdrawalReasons = [
+    &quot;User requested withdrawal&quot;,
+    &quot;Privacy concerns&quot;,
+    &quot;No longer needed&quot;,
+    &quot;Service termination&quot;,
+    &quot;Policy change&quot;
+]
+String withdrawalReason = withdrawalReasons[random.nextInt(withdrawalReasons.length)]
+vars.put(&quot;WITHDRAWAL_REASON&quot;, withdrawalReason)
+
+String jsonPayload = &quot;{\n  \&quot;withdrawalReason\&quot;: \&quot;&quot; + withdrawalReason + &quot;\&quot;\n}&quot;
+vars.put(&quot;WITHDRAW_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip WITHDRAW if no consent" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_WITHDRAW&quot;) != &quot;true&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="4. POST Withdraw Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}/withdraw</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">${WITHDRAW_JSON_PAYLOAD}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="5. Get List Consents (for Delete)" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - consentId for Delete" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">CONSENT_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$[0].id</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Delete" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for delete, skipping DELETE operation&quot;)
+    vars.put(&quot;SKIP_DELETE&quot;, &quot;true&quot;)
+} else {
+    vars.put(&quot;SKIP_DELETE&quot;, &quot;false&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip DELETE if no consent" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_DELETE&quot;) != &quot;true&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="6. DELETE Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">DELETE</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Snapshot Operations" enabled="false">
+        <intProp name="ThreadGroup.num_threads">1</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate PERSON_ID" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">// Validate that PERSON_ID is set
+String personId = vars.get(&quot;PERSON_ID&quot;)
+if (personId == null || personId.isEmpty() || personId.equals(&quot;&lt;EOF&gt;&quot;) || personId.trim().isEmpty()) {
+    log.warn(&quot;PERSON_ID is empty, using placeholder&quot;)
+    vars.put(&quot;PERSON_ID&quot;, &quot;00000000-0000-0000-0000-000000000000&quot;)
+} else {
+    log.debug(&quot;PERSON_ID is valid: &quot; + personId)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate and URL Encode Email/Phone" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">// Validate and URL encode email
+String email = vars.get(&quot;EMAIL&quot;)
+if (email == null || email.isEmpty() || email.equals(&quot;&lt;EOF&gt;&quot;) || email.trim().isEmpty()) {
+    vars.put(&quot;EMAIL_ENCODED&quot;, &quot;test%40example.com&quot;)
+} else {
+    vars.put(&quot;EMAIL_ENCODED&quot;, java.net.URLEncoder.encode(email, &quot;UTF-8&quot;))
+}
+
+// Validate and URL encode phone
+String phone = vars.get(&quot;PHONE&quot;)
+if (phone == null || phone.isEmpty() || phone.equals(&quot;&lt;EOF&gt;&quot;) || phone.trim().isEmpty()) {
+    vars.put(&quot;PHONE_ENCODED&quot;, &quot;%2B1-555-0000&quot;)
+} else {
+    vars.put(&quot;PHONE_ENCODED&quot;, java.net.URLEncoder.encode(phone, &quot;UTF-8&quot;))
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="1. Get Snapshot by Person ID" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(snapshot_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/snapshot/person/${PERSON_ID}/latest</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="2. Get Snapshot by Email" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(snapshot_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/snapshot/by-email/${EMAIL_ENCODED}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="3. Get Snapshot by Phone" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">${__P(snapshot_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/snapshot/by-phone/${PHONE_ENCODED}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="GDPR Isolated - G1 Create Person with Consent" enabled="false">
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,10)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(ramp,30)}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration,300)}</stringProp>
+        <longProp name="ThreadGroup.delay">0</longProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <intProp name="LoopController.loops">-1</intProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="G1 - Generate Consent and Identity Data" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+Random random = new Random()
+String[] consentTypes = [&quot;MARKETING&quot;,&quot;ANALYTICS&quot;,&quot;DATA_PROCESSING&quot;,&quot;COMMUNICATION&quot;,&quot;PROFILING&quot;,&quot;LOCATION&quot;,&quot;BIOMETRIC&quot;,&quot;HEALTH_DATA&quot;,&quot;FINANCIAL&quot;,&quot;THIRD_PARTY_SHARING&quot;]
+vars.put(&quot;CONSENT_TYPE&quot;, consentTypes[random.nextInt(consentTypes.length)])
+long ts = System.currentTimeMillis()
+int rnd = random.nextInt(90000) + 10000
+vars.put(&quot;GEN_EMAIL&quot;, &quot;g1-&quot; + ctx.getThreadNum() + &quot;-&quot; + ts + &quot;-&quot; + rnd + &quot;@example.com&quot;)
+vars.put(&quot;GEN_PHONE&quot;, &quot;+351-9&quot; + ctx.getThreadNum() + ts % 100000000)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="G1 - Create Person with Consent" enabled="true">
+          <stringProp name="HTTPSampler.domain">${DOMAIN}</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(person_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&#xd;
+  &quot;status&quot;: &quot;ACTIVE&quot;,&#xd;
+  &quot;userAccount&quot;: {&#xd;
+    &quot;type&quot;: &quot;STANDARD&quot;,&#xd;
+    &quot;firstName&quot;: &quot;GDPRTest&quot;,&#xd;
+    &quot;lastName&quot;: &quot;User&quot;,&#xd;
+    &quot;surname&quot;: &quot;G1&quot;,&#xd;
+    &quot;password&quot;: &quot;TestPass123&quot;,&#xd;
+    &quot;taxNumber&quot;: &quot;G1-${__threadNum}-${__time()}&quot;,&#xd;
+    &quot;dateOfBirth&quot;: &quot;1990-01-15T00:00:00Z&quot;,&#xd;
+    &quot;gender&quot;: &quot;MALE&quot;,&#xd;
+    &quot;nationality&quot;: &quot;Portuguese&quot;&#xd;
+  },&#xd;
+  &quot;contactIdentities&quot;: [&#xd;
+    { &quot;type&quot;: &quot;EMAIL&quot;, &quot;value&quot;: &quot;${GEN_EMAIL}&quot;, &quot;primary&quot;: true },&#xd;
+    { &quot;type&quot;: &quot;PHONE&quot;, &quot;value&quot;: &quot;${GEN_PHONE}&quot;, &quot;primary&quot;: false }&#xd;
+  ],&#xd;
+  &quot;consents&quot;: [&#xd;
+    {&#xd;
+      &quot;consentType&quot;: &quot;${CONSENT_TYPE}&quot;,&#xd;
+      &quot;granted&quot;: true,&#xd;
+      &quot;grantedAt&quot;: &quot;2024-01-01T00:00:00Z&quot;,&#xd;
+      &quot;consentMethod&quot;: &quot;WEB_FORM&quot;,&#xd;
+      &quot;consentVersion&quot;: &quot;v1.0&quot;,&#xd;
+      &quot;isActive&quot;: true&#xd;
+    }&#xd;
+  ]&#xd;
+}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Assert 201" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">201</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract personId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">G1_PERSON_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.personId</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="G1 - Delete Person (cleanup)" enabled="true">
+          <stringProp name="HTTPSampler.domain">${DOMAIN}</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(person_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${G1_PERSON_ID}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">DELETE</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+        </hashTree>
+        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="G1 Summary Report" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>false</dataType>
+              <encoding>false</encoding>
+              <assertions>false</assertions>
+              <subresults>false</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <threadCounts>true</threadCounts>
+            </value>
+          </objProp>
+          <stringProp name="filename">results/gdpr-g1_t${__P(threads,10)}_${__time(yyyy-MM-dd_HH-mm)}.jtl</stringProp>
+        </ResultCollector>
+        <hashTree/>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="GDPR Isolated - G2 Consent Lifecycle" enabled="false">
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,10)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(ramp,30)}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration,300)}</stringProp>
+        <longProp name="ThreadGroup.delay">0</longProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <intProp name="LoopController.loops">-1</intProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="G2 - Validate Person ID from CSV" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">String personId = vars.get(&quot;PERSON_ID&quot;)
+if (personId == null || personId.isEmpty() || personId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    vars.put(&quot;PERSON_ID&quot;, &quot;00000000-0000-0000-0000-000000000000&quot;)
+}
+String[] types = [&quot;MARKETING&quot;,&quot;ANALYTICS&quot;,&quot;DATA_PROCESSING&quot;,&quot;COMMUNICATION&quot;,&quot;PROFILING&quot;]
+vars.put(&quot;CONSENT_TYPE&quot;, types[new Random().nextInt(types.length)])</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="G2 - Create Consent" enabled="true">
+          <stringProp name="HTTPSampler.domain">${DOMAIN}</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&#xd;
+  &quot;consentType&quot;: &quot;${CONSENT_TYPE}&quot;,&#xd;
+  &quot;granted&quot;: true,&#xd;
+  &quot;grantedAt&quot;: &quot;${__time(yyyy-MM-dd)}T00:00:00Z&quot;,&#xd;
+  &quot;consentMethod&quot;: &quot;WEB_FORM&quot;,&#xd;
+  &quot;consentVersion&quot;: &quot;v1.0&quot;,&#xd;
+  &quot;isActive&quot;: true&#xd;
+}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Assert 201" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">201</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract consentId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">G2_CONSENT_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.consentId</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="G2 - Validate Consent ID before Withdraw" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">String cid = vars.get(&quot;G2_CONSENT_ID&quot;)
+if (cid == null || cid.isEmpty() || cid.equals(&quot;null&quot;)) {
+    vars.put(&quot;G2_SKIP_WITHDRAW&quot;, &quot;true&quot;)
+} else {
+    vars.put(&quot;G2_SKIP_WITHDRAW&quot;, &quot;false&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If - Skip Withdraw when no consent" enabled="true">
+          <stringProp name="IfController.condition">${G2_SKIP_WITHDRAW} == false</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">false</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="G2 - Withdraw Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain">${DOMAIN}</stringProp>
+            <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${G2_CONSENT_ID}/withdraw</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{&quot;reason&quot;: &quot;User requested withdrawal during benchmark&quot;}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+          </hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="G2 - Delete Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain">${DOMAIN}</stringProp>
+            <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${G2_CONSENT_ID}</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">DELETE</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="G2 Summary Report" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>false</dataType>
+              <encoding>false</encoding>
+              <assertions>false</assertions>
+              <subresults>false</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <threadCounts>true</threadCounts>
+            </value>
+          </objProp>
+          <stringProp name="filename">results/gdpr-g2_t${__P(threads,10)}_${__time(yyyy-MM-dd_HH-mm)}.jtl</stringProp>
+        </ResultCollector>
+        <hashTree/>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="GDPR Isolated - G3 Snapshot Retrieval" enabled="false">
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,10)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(ramp,30)}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration,300)}</stringProp>
+        <longProp name="ThreadGroup.delay">0</longProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <intProp name="LoopController.loops">-1</intProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="G3 - Validate and Encode Identities" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">String personId = vars.get(&quot;PERSON_ID&quot;)
+if (personId == null || personId.isEmpty() || personId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    vars.put(&quot;PERSON_ID&quot;, &quot;00000000-0000-0000-0000-000000000000&quot;)
+}
+String email = vars.get(&quot;EMAIL&quot;)
+if (email == null || email.isEmpty() || email.equals(&quot;&lt;EOF&gt;&quot;)) {
+    email = &quot;test@example.com&quot;
+    vars.put(&quot;EMAIL&quot;, email)
+}
+String phone = vars.get(&quot;PHONE&quot;)
+if (phone == null || phone.isEmpty() || phone.equals(&quot;&lt;EOF&gt;&quot;)) {
+    phone = &quot;+351-910000000&quot;
+    vars.put(&quot;PHONE&quot;, phone)
+}
+vars.put(&quot;EMAIL_ENCODED&quot;, java.net.URLEncoder.encode(email, &quot;UTF-8&quot;))
+vars.put(&quot;PHONE_ENCODED&quot;, java.net.URLEncoder.encode(phone, &quot;UTF-8&quot;))</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="G3 - Get Snapshot by Person ID" enabled="true">
+          <stringProp name="HTTPSampler.domain">${DOMAIN}</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(snapshot_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/snapshot/person/${PERSON_ID}/latest</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Assert 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="G3 - Get Snapshot by Email" enabled="true">
+          <stringProp name="HTTPSampler.domain">${DOMAIN}</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(snapshot_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/snapshot/by-email/${EMAIL_ENCODED}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Assert 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="G3 - Get Snapshot by Phone" enabled="true">
+          <stringProp name="HTTPSampler.domain">${DOMAIN}</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(snapshot_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/snapshot/by-phone/${PHONE_ENCODED}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Assert 200" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message"></stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="G3 Summary Report" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>false</dataType>
+              <encoding>false</encoding>
+              <assertions>false</assertions>
+              <subresults>false</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <threadCounts>true</threadCounts>
+            </value>
+          </objProp>
+          <stringProp name="filename">results/gdpr-g3_t${__P(threads,10)}_${__time(yyyy-MM-dd_HH-mm)}.jtl</stringProp>
+        </ResultCollector>
+        <hashTree/>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Mixed Benchmark - Real Scenario" enabled="true">
+        <intProp name="ThreadGroup.num_threads">5</intProp>
+        <intProp name="ThreadGroup.ramp_time">5</intProp>
+        <longProp name="ThreadGroup.duration">60</longProp>
+        <longProp name="ThreadGroup.delay">0</longProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">100</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Random Consent Type for Create" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+
+// Random consent types (weighted distribution across 13 types)
+String[] consentTypes = [&quot;MARKETING&quot;, &quot;MARKETING&quot;, &quot;MARKETING&quot;, &quot;MARKETING&quot;, &quot;MARKETING&quot;,
+                        &quot;ANALYTICS&quot;, &quot;ANALYTICS&quot;, &quot;ANALYTICS&quot;,
+                        &quot;DATA_PROCESSING&quot;, &quot;DATA_PROCESSING&quot;,
+                        &quot;COMMUNICATION&quot;, &quot;COMMUNICATION&quot;,
+                        &quot;PROFILING&quot;, &quot;PROFILING&quot;,
+                        &quot;LOCATION&quot;,
+                        &quot;BIOMETRIC&quot;,
+                        &quot;HEALTH_DATA&quot;,
+                        &quot;FINANCIAL&quot;,
+                        &quot;SOCIAL_MEDIA&quot;,
+                        &quot;THIRD_PARTY_SHARING&quot;,
+                        &quot;RESEARCH&quot;,
+                        &quot;AUTOMATED_DECISION_MAKING&quot;]
+String consentType = consentTypes[random.nextInt(consentTypes.length)]
+vars.put(&quot;CONSENT_TYPE&quot;, consentType)
+
+log.debug(&quot;Generated random consent type: &quot; + consentType)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Email and Phone Variables for Mixed" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+int threadNum = ctx.getThreadNum()
+long timestamp = System.currentTimeMillis()
+int randomNum = random.nextInt(90000) + 10000
+int randomPhoneNum = random.nextInt(9000) + 1000
+
+// Generate unique email
+String email = &quot;test-&quot; + threadNum + &quot;-&quot; + timestamp + &quot;-&quot; + randomNum + &quot;@example.com&quot;
+vars.put(&quot;EMAIL&quot;, email)
+vars.put(&quot;CREATED_EMAIL&quot;, email)  // Store in CREATED_EMAIL to avoid CSV overwrite
+vars.put(&quot;EMAIL_ENCODED&quot;, java.net.URLEncoder.encode(email, &quot;UTF-8&quot;))
+
+// Generate unique phone
+String phone = &quot;+1-555-&quot; + threadNum + timestamp + randomPhoneNum
+vars.put(&quot;PHONE&quot;, phone)
+vars.put(&quot;CREATED_PHONE&quot;, phone)  // Store in CREATED_PHONE to avoid CSV overwrite
+vars.put(&quot;PHONE_ENCODED&quot;, java.net.URLEncoder.encode(phone, &quot;UTF-8&quot;))
+
+log.debug(&quot;Generated EMAIL: &quot; + email + &quot; - Encoded: &quot; + vars.get(&quot;EMAIL_ENCODED&quot;))
+log.debug(&quot;Generated PHONE: &quot; + phone + &quot; - Encoded: &quot; + vars.get(&quot;PHONE_ENCODED&quot;))</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Person - Create" enabled="true">
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(person_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&#xd;
+  &quot;status&quot;: &quot;ACTIVE&quot;,&#xd;
+  &quot;userAccount&quot;: {&#xd;
+    &quot;type&quot;: &quot;STANDARD&quot;,&#xd;
+    &quot;firstName&quot;: &quot;John&quot;,&#xd;
+    &quot;lastName&quot;: &quot;Doe&quot;,&#xd;
+    &quot;surname&quot;: &quot;Smith&quot;,&#xd;
+    &quot;password&quot;: &quot;SecurePass123&quot;,&#xd;
+    &quot;taxNumber&quot;: &quot;123456789&quot;,&#xd;
+    &quot;dateOfBirth&quot;: &quot;1990-01-15T00:00:00Z&quot;,&#xd;
+    &quot;gender&quot;: &quot;MALE&quot;,&#xd;
+    &quot;nationality&quot;: &quot;American&quot;&#xd;
+  },&#xd;
+  &quot;contactIdentities&quot;: [&#xd;
+    {&#xd;
+      &quot;type&quot;: &quot;EMAIL&quot;,&#xd;
+      &quot;value&quot;: &quot;${EMAIL}&quot;,&#xd;
+      &quot;primary&quot;: true&#xd;
+    },&#xd;
+    {&#xd;
+      &quot;type&quot;: &quot;PHONE&quot;,&#xd;
+      &quot;value&quot;: &quot;${PHONE}&quot;,&#xd;
+      &quot;primary&quot;: false&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;addresses&quot;: [&#xd;
+    {&#xd;
+      &quot;addressType&quot;: &quot;HOME&quot;,&#xd;
+      &quot;country&quot;: &quot;United States&quot;,&#xd;
+      &quot;postalCode&quot;: &quot;12345&quot;,&#xd;
+      &quot;city&quot;: &quot;New York&quot;,&#xd;
+      &quot;street&quot;: &quot;Main Street&quot;,&#xd;
+      &quot;streetNumber&quot;: &quot;123&quot;,&#xd;
+      &quot;isPrimary&quot;: true,&#xd;
+      &quot;verifiedAddress&quot;: true&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;consents&quot;: [&#xd;
+    {&#xd;
+      &quot;consentType&quot;: &quot;${CONSENT_TYPE}&quot;,&#xd;
+      &quot;granted&quot;: true,&#xd;
+      &quot;grantedAt&quot;: &quot;2024-01-01T00:00:00Z&quot;,&#xd;
+      &quot;consentMethod&quot;: &quot;WEB_FORM&quot;,&#xd;
+      &quot;consentVersion&quot;: &quot;v1.0&quot;,&#xd;
+      &quot;isActive&quot;: true&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;preferences&quot;: {&#xd;
+    &quot;language&quot;: &quot;en&quot;,&#xd;
+    &quot;nickname&quot;: &quot;Johnny&quot;&#xd;
+  }&#xd;
+}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">201</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - personId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">PERSON_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.personId</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Consent Data for Mixed" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+
+// Generate random consent data
+String[] consentMethods = [&quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;, &quot;EMAIL&quot;]
+String consentMethod = consentMethods[random.nextInt(consentMethods.length)]
+String[] consentVersions = [&quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.1&quot;, &quot;v1.1&quot;, &quot;v2.0&quot;, &quot;v2.1&quot;]
+String consentVersion = consentVersions[random.nextInt(consentVersions.length)]
+boolean granted = random.nextDouble() &lt; 0.85
+
+String consentJson = &quot;{\n&quot; +
+    &quot;  \&quot;consentType\&quot;: \&quot;&quot; + vars.get(&quot;CONSENT_TYPE&quot;) + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;granted\&quot;: &quot; + granted + &quot;,\n&quot; +
+    &quot;  \&quot;consentMethod\&quot;: \&quot;&quot; + consentMethod + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;consentVersion\&quot;: \&quot;&quot; + consentVersion + &quot;\&quot;\n&quot; +
+    &quot;}&quot;
+vars.put(&quot;CONSENT_JSON_PAYLOAD&quot;, consentJson)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Person - Update" enabled="true">
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(person_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">PUT</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{&#xd;
+  &quot;status&quot;: &quot;ACTIVE&quot;,&#xd;
+  &quot;userAccount&quot;: {&#xd;
+    &quot;type&quot;: &quot;STANDARD&quot;,&#xd;
+    &quot;firstName&quot;: &quot;Jane&quot;,&#xd;
+    &quot;lastName&quot;: &quot;Smith&quot;,&#xd;
+    &quot;surname&quot;: &quot;Updated&quot;,&#xd;
+    &quot;password&quot;: &quot;SecurePass456&quot;,&#xd;
+    &quot;taxNumber&quot;: &quot;987654321&quot;,&#xd;
+    &quot;dateOfBirth&quot;: &quot;1992-05-20T00:00:00Z&quot;,&#xd;
+    &quot;gender&quot;: &quot;FEMALE&quot;,&#xd;
+    &quot;nationality&quot;: &quot;British&quot;&#xd;
+  },&#xd;
+  &quot;contactIdentities&quot;: [&#xd;
+    {&#xd;
+      &quot;type&quot;: &quot;EMAIL&quot;,&#xd;
+      &quot;value&quot;: &quot;${EMAIL}&quot;,&#xd;
+      &quot;primary&quot;: true&#xd;
+    },&#xd;
+    {&#xd;
+      &quot;type&quot;: &quot;PHONE&quot;,&#xd;
+      &quot;value&quot;: &quot;${PHONE}&quot;,&#xd;
+      &quot;primary&quot;: false&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;addresses&quot;: [&#xd;
+    {&#xd;
+      &quot;addressType&quot;: &quot;HOME&quot;,&#xd;
+      &quot;country&quot;: &quot;United Kingdom&quot;,&#xd;
+      &quot;postalCode&quot;: &quot;SW1A 1AA&quot;,&#xd;
+      &quot;city&quot;: &quot;London&quot;,&#xd;
+      &quot;street&quot;: &quot;Baker Street&quot;,&#xd;
+      &quot;streetNumber&quot;: &quot;221B&quot;,&#xd;
+      &quot;isPrimary&quot;: true,&#xd;
+      &quot;verifiedAddress&quot;: true&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;consents&quot;: [&#xd;
+    {&#xd;
+      &quot;consentType&quot;: &quot;${CONSENT_TYPE}&quot;,&#xd;
+      &quot;granted&quot;: false,&#xd;
+      &quot;grantedAt&quot;: &quot;2024-06-01T00:00:00Z&quot;,&#xd;
+      &quot;consentMethod&quot;: &quot;WEB_FORM&quot;,&#xd;
+      &quot;consentVersion&quot;: &quot;v2.0&quot;,&#xd;
+      &quot;isActive&quot;: true&#xd;
+    }&#xd;
+  ],&#xd;
+  &quot;preferences&quot;: {&#xd;
+    &quot;language&quot;: &quot;en-GB&quot;,&#xd;
+    &quot;nickname&quot;: &quot;Janey&quot;&#xd;
+  }&#xd;
+}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Person - Get" enabled="true">
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(person_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Extract Email and Phone from Get Response" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">import groovy.json.JsonSlurper
+
+// Get the response data
+String responseData = prev.getResponseDataAsString()
+
+if (responseData != null &amp;&amp; !responseData.isEmpty()) {
+    try {
+        def json = new JsonSlurper().parseText(responseData)
+        
+        // Extract EMAIL from contactIdentities array
+        if (json.contactIdentities != null) {
+            def emailIdentity = json.contactIdentities.find { it.type == &quot;EMAIL&quot; }
+            if (emailIdentity != null &amp;&amp; emailIdentity.value != null) {
+                String email = emailIdentity.value.toString()
+                // Store in both EMAIL and CREATED_EMAIL to avoid CSV overwrite
+                vars.put(&quot;EMAIL&quot;, email)
+                vars.put(&quot;CREATED_EMAIL&quot;, email)
+                vars.put(&quot;EMAIL_ENCODED&quot;, java.net.URLEncoder.encode(email, &quot;UTF-8&quot;))
+                log.info(&quot;Extracted EMAIL from Get response: &quot; + email)
+            }
+            
+            // Extract PHONE from contactIdentities array
+            def phoneIdentity = json.contactIdentities.find { it.type == &quot;PHONE&quot; }
+            if (phoneIdentity != null &amp;&amp; phoneIdentity.value != null) {
+                String phone = phoneIdentity.value.toString()
+                // Store in both PHONE and CREATED_PHONE to avoid CSV overwrite
+                vars.put(&quot;PHONE&quot;, phone)
+                vars.put(&quot;CREATED_PHONE&quot;, phone)
+                vars.put(&quot;PHONE_ENCODED&quot;, java.net.URLEncoder.encode(phone, &quot;UTF-8&quot;))
+                log.info(&quot;Extracted PHONE from Get response: &quot; + phone)
+            }
+        }
+    } catch (Exception e) {
+        log.error(&quot;Error parsing JSON response from Get: &quot; + e.getMessage())
+    }
+}</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Consents - Create" enabled="true">
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">${CONSENT_JSON_PAYLOAD}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">201</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - consentId from Create" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">CONSENT_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.id</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Consents - List" enabled="true">
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Snapshot - Get by Person ID" enabled="true">
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(snapshot_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/snapshot/person/${PERSON_ID}/latest</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Extract Email and Phone from Snapshot Response" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">import groovy.json.JsonSlurper
+
+// Get the response data from snapshot
+String responseData = prev.getResponseDataAsString()
+
+if (responseData != null &amp;&amp; !responseData.isEmpty()) {
+    try {
+        def json = new JsonSlurper().parseText(responseData)
+        
+        // The snapshot response may have contactIdentities directly or nested in personData
+        def contactIdentities = json.contactIdentities
+        if (contactIdentities == null &amp;&amp; json.personData != null) {
+            contactIdentities = json.personData.contactIdentities
+        }
+        
+        // Extract EMAIL from contactIdentities array
+        if (contactIdentities != null) {
+            def emailIdentity = contactIdentities.find { it.type == &quot;EMAIL&quot; }
+            if (emailIdentity != null &amp;&amp; emailIdentity.value != null) {
+                String email = emailIdentity.value.toString()
+                vars.put(&quot;EMAIL&quot;, email)
+                vars.put(&quot;EMAIL_ENCODED&quot;, java.net.URLEncoder.encode(email, &quot;UTF-8&quot;))
+                log.info(&quot;Extracted EMAIL from Snapshot response: &quot; + email)
+            }
+            
+            // Extract PHONE from contactIdentities array
+            def phoneIdentity = contactIdentities.find { it.type == &quot;PHONE&quot; }
+            if (phoneIdentity != null &amp;&amp; phoneIdentity.value != null) {
+                String phone = phoneIdentity.value.toString()
+                vars.put(&quot;PHONE&quot;, phone)
+                vars.put(&quot;PHONE_ENCODED&quot;, java.net.URLEncoder.encode(phone, &quot;UTF-8&quot;))
+                log.info(&quot;Extracted PHONE from Snapshot response: &quot; + phone)
+            }
+        } else {
+            log.warn(&quot;No contactIdentities found in Snapshot response&quot;)
+        }
+    } catch (Exception e) {
+        log.error(&quot;Error parsing Snapshot JSON response: &quot; + e.getMessage())
+    }
+}</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PostProcessor>
+          <hashTree/>
+        </hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Extract Email from Snapshot Before Get by Email" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">// Extract EMAIL from the previous Snapshot - Get by Person ID response
+// This ensures we use the actual values from the snapshot, not CSV values
+import groovy.json.JsonSlurper
+
+// Get the last sample result (should be the Snapshot - Get by Person ID request)
+def lastSample = ctx.getPreviousResult()
+if (lastSample != null) {
+    String responseData = lastSample.getResponseDataAsString()
+    
+    if (responseData != null &amp;&amp; !responseData.isEmpty()) {
+        try {
+            def json = new JsonSlurper().parseText(responseData)
+            
+            // The snapshot response may have contactIdentities directly or nested in personData
+            def contactIdentities = json.identities
+            if (contactIdentities == null &amp;&amp; json.personData != null) {
+                contactIdentities = json.personData.identities
+            }
+            
+            // Extract EMAIL from contactIdentities array
+            if (contactIdentities != null) {
+                def emailIdentity = contactIdentities.find { it.type == &quot;EMAIL&quot; }
+                if (emailIdentity != null &amp;&amp; emailIdentity.value != null) {
+                    String email = emailIdentity.value.toString()
+                    vars.put(&quot;EMAIL&quot;, email)
+                    vars.put(&quot;EMAIL_ENCODED&quot;, java.net.URLEncoder.encode(email, &quot;UTF-8&quot;))
+                    log.info(&quot;Extracted EMAIL from Snapshot before Get by Email: &quot; + email)
+                } else {
+                    log.warn(&quot;No EMAIL found in Snapshot response&quot;)
+                }
+            } else {
+                log.warn(&quot;No contactIdentities found in Snapshot response&quot;)
+            }
+        } catch (Exception e) {
+            log.error(&quot;Error parsing Snapshot response before Get by Email: &quot; + e.getMessage())
+        }
+    } else {
+        log.warn(&quot;No response data available from Snapshot&quot;)
+    }
+} else {
+    log.warn(&quot;No previous result found (Snapshot - Get by Person ID)&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Snapshot - Get by Email" enabled="true">
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(snapshot_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/snapshot/by-email/${EMAIL_ENCODED}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Extract Phone from Snapshot Before Get by Phone" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">// Extract PHONE from the previous Snapshot - Get by Person ID response
+// This ensures we use the actual values from the snapshot, not CSV values
+import groovy.json.JsonSlurper
+
+// Get the last sample result (should be the Snapshot - Get by Person ID request)
+def lastSample = ctx.getPreviousResult()
+if (lastSample != null) {
+    String responseData = lastSample.getResponseDataAsString()
+    
+    if (responseData != null &amp;&amp; !responseData.isEmpty()) {
+        try {
+            def json = new JsonSlurper().parseText(responseData)
+            
+            // The snapshot response may have contactIdentities directly or nested in personData
+            def contactIdentities = json.identities
+            if (contactIdentities == null &amp;&amp; json.personData != null) {
+                contactIdentities = json.personData.identities
+            }
+            
+            // Extract PHONE from contactIdentities array
+            if (contactIdentities != null) {
+                def phoneIdentity = contactIdentities.find { it.type == &quot;PHONE&quot; }
+                if (phoneIdentity != null &amp;&amp; phoneIdentity.value != null) {
+                    String phone = phoneIdentity.value.toString()
+                    vars.put(&quot;PHONE&quot;, phone)
+                    vars.put(&quot;PHONE_ENCODED&quot;, java.net.URLEncoder.encode(phone, &quot;UTF-8&quot;))
+                    log.info(&quot;Extracted PHONE from Snapshot before Get by Phone: &quot; + phone)
+                } else {
+                    log.warn(&quot;No PHONE found in Snapshot response&quot;)
+                }
+            } else {
+                log.warn(&quot;No contactIdentities found in Snapshot response&quot;)
+            }
+        } catch (Exception e) {
+            log.error(&quot;Error parsing Snapshot response before Get by Phone: &quot; + e.getMessage())
+        }
+    } else {
+        log.warn(&quot;No response data available from Snapshot&quot;)
+    }
+} else {
+    log.warn(&quot;No previous result found (Snapshot - Get by Person ID)&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Snapshot - Get by Phone" enabled="true">
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(snapshot_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/snapshot/by-phone/${PHONE_ENCODED}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Withdraw/Delete" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No CONSENT_ID found from create response, skipping withdraw/delete operations&quot;)
+    vars.put(&quot;SKIP_CONSENT_OPS&quot;, &quot;true&quot;)
+} else {
+    log.debug(&quot;Using CONSENT_ID from created consent: &quot; + consentId)
+    vars.put(&quot;SKIP_CONSENT_OPS&quot;, &quot;false&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Withdrawal Reason for Mixed" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+String[] withdrawalReasons = [
+    &quot;User requested withdrawal&quot;,
+    &quot;Privacy concerns&quot;,
+    &quot;No longer needed&quot;,
+    &quot;Service termination&quot;,
+    &quot;Policy change&quot;
+]
+String withdrawalReason = withdrawalReasons[random.nextInt(withdrawalReasons.length)]
+String jsonPayload = &quot;{\n  \&quot;withdrawalReason\&quot;: \&quot;&quot; + withdrawalReason + &quot;\&quot;\n}&quot;
+vars.put(&quot;WITHDRAW_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip Withdraw if no consent" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_CONSENT_OPS&quot;) != &quot;true&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Consents - Withdraw" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}/withdraw</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">${WITHDRAW_JSON_PAYLOAD}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip Delete if no consent" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_CONSENT_OPS&quot;) != &quot;true&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Consents - Delete" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">${__P(consent_port,8080)}</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">DELETE</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Person - Delete" enabled="true">
+          <stringProp name="HTTPSampler.domain">127.0.0.1</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(person_port,8080)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">DELETE</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>false</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>true</requestHeaders>
+            <responseDataOnError>true</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename">results/${SCENARIO_NAME}_t${__P(threads,10)}_${__time(yyyy-MM-dd_HH-mm)}.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report" enabled="true">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>false</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename">results/${SCENARIO_NAME}_t${__P(threads,10)}_${__time(yyyy-MM-dd_HH-mm)}_summary.jtl</stringProp>
+      </ResultCollector>
+      <hashTree/>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

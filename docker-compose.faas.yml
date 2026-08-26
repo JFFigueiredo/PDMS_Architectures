@@ -1,0 +1,47 @@
+# PDMS FaaS — local dev only; campaign used docker-compose.faas.remote.yml on the App VM.
+#
+# Requires postgres + kafka reachable at SPRING_DATASOURCE_URL / SPRING_KAFKA_BOOTSTRAP_SERVERS.
+#
+# Test (of-watchdog on port 8085):
+#   curl http://localhost:8085/actuator/health
+#   curl -H "Authorization: Bearer <JWT>" http://localhost:8085/api/person/health
+#   curl -H "Authorization: Bearer <JWT>" http://localhost:8085/function/pdms-faas/api/person/health
+services:
+  pdms-faas:
+    image: pdms-faas:latest
+    container_name: pdms-faas
+    environment:
+      JWT_PUBLIC_KEY_PATH: file:/app/jwt-keys/public-key.pem
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/pdms
+      SPRING_DATASOURCE_USERNAME: pdms_user
+      SPRING_DATASOURCE_PASSWORD: pdms_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # of-watchdog: default 200 matches Spring Boot Tomcat default; avoids artificial serial bottleneck vs monolith.
+      max_inflight: "200"
+      read_timeout: "60s"
+      write_timeout: "120s"
+      exec_timeout: "120s"
+    ports:
+      - "8085:8080"
+    volumes:
+      - ./pdms-monolith/src/main/resources/jwt-keys:/app/jwt-keys:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.8'
+          memory: 6144M
+        reservations:
+          cpus: '1.5'
+          memory: 4096M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health 2>/dev/null | grep -q 'UP' || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 90s

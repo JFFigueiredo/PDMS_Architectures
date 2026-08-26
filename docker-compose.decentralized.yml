@@ -1,0 +1,43 @@
+# App VM: PDMS hybrid app only.
+# Postgres and Kafka run on the data-layer VM; Besu runs on its OWN VM from the 2026-08
+# campaign onward, so the shared data layer stays constant across all five variants.
+# Neither is started by this file.
+#
+# Run on the app host:
+#   docker compose -f docker-compose.decentralized.yml up -d
+#
+# Open inbound TCP 8080 on the app VM for clients that should call the API.
+
+services:
+  pdms-hybrid-decentralized:
+    image: pdms-hybrid-decentralized:latest
+    container_name: pdms-hybrid-decentralized
+    volumes:
+      - ./pdms-monolith/src/main/resources/jwt-keys:/app/jwt-keys:ro
+    environment:
+      JWT_PUBLIC_KEY_PATH: file:/app/jwt-keys/public-key.pem
+      SPRING_DATASOURCE_URL: jdbc:postgresql://<db-host>:5432/pdms
+      SPRING_DATASOURCE_USERNAME: pdms_user
+      SPRING_DATASOURCE_PASSWORD: pdms_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: <db-host>:9092
+      PDMS_BLOCKCHAIN_ENABLED: "true"
+      PDMS_BLOCKCHAIN_RPC_URL: http://<besu-host>:8545
+      PDMS_BLOCKCHAIN_PRIVATE_KEY: "0x8f2a55949038a9610f50fb23b5883af3b4ecb3c3bb792cbcefbd1542c692be63"
+      PDMS_BLOCKCHAIN_CHAIN_ID: "1337"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.8'
+          memory: 6144M
+        reservations:
+          cpus: '1.5'
+          memory: 4096M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s

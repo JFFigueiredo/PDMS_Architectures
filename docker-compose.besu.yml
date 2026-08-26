@@ -1,0 +1,47 @@
+# Besu only (JSON-RPC on 8545). From the 2026-08 campaign onward Besu runs on its OWN VM
+# (2 CPU / 8 GB), not beside Postgres and Kafka. That keeps the shared data layer constant
+# across all five variants: previously the data-layer VM averaged 54.7% CPU busy during
+# decentralized runs against 26.6-41.1% for the other variants, so `decentralized` was
+# measured against a more loaded database than its competitors.
+#
+# Budget below mirrors the application budget (1.8 CPU / 6144 MB) so the ledger node is
+# not the bottleneck and its true consumption can be measured from host metrics. Observed
+# usage in the 2026-04/05 campaign was ~0.76 CPU peak and ~455 MiB, well inside this.
+#
+# Remote app VM: set PDMS_BLOCKCHAIN_RPC_URL=http://<besu-host-public-ip>:8545 and allow inbound 8545
+# from the app VM IP only (plaintext RPC; do not expose to the whole Internet in production).
+#
+#   docker compose -f docker-compose.besu.yml up -d
+services:
+  besu:
+    build: ./docker/besu
+    # Pinned 2026-08-18 from 24.3 to 24.3.3. NOT a guess: the deposited Besu Prometheus
+    # captures report the resolved client string besu/v24.3.3/linux-x86 (17 occurrences
+    # under data/, incl. data/VMs/VM_INFRASTRUCTURE_2026-08-14.md), so 24.3.3 is the
+    # build that actually produced the decentralized results. The floating 24.3 tag
+    # would silently move to a later patch on any rebuild.
+    image: pdms-besu:24.3.3
+    container_name: pdms-decentralized-besu
+    ports:
+      - "8545:8545"
+      # Besu's Prometheus endpoint (--metrics-enabled). collect_besu_data.sh curls
+      # 127.0.0.1:9545/metrics from the VM host, so it must be published.
+      - "9545:9545"
+    # Top-level cpus/mem_limit are what plain `docker compose up` applies; the deploy
+    # block below is Swarm-only and is kept for parity. Verify with:
+    #   docker inspect pdms-decentralized-besu --format '{{.HostConfig.NanoCpus}} {{.HostConfig.Memory}}'
+    # Expect: 1800000000 6442450944
+    cpus: 1.8
+    mem_limit: 6144m
+    deploy:
+      resources:
+        limits:
+          cpus: '1.8'
+          memory: 6144M
+        reservations:
+          cpus: '1.5'
+          memory: 4096M
+    restart: unless-stopped
+    # Chain data in container layer (/opt/besu/data). Add a named volume only if you
+    # chown it to uid 1000 or run as root — default volume mounts are root-owned.
+

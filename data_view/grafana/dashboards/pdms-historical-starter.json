@@ -1,0 +1,88 @@
+{
+  "id": null,
+  "uid": "pdms-historical-starter",
+  "title": "PDMS Historical Starter",
+  "tags": ["historical", "influxdb", "pdms"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "2026-04-27T14:45:00Z",
+    "to": "2026-04-27T16:00:00Z"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "source_file",
+        "type": "query",
+        "label": "Source File",
+        "datasource": "InfluxDB-Historical",
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"pdms_historical\", tag: \"source_file\", predicate: (r) => r._measurement == \"prometheus_metric_file\", start: 2026-04-27T14:45:00Z, stop: 2026-04-27T16:00:00Z)",
+        "refresh": 1,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "selected": false,
+          "text": "metrics_cpu.json",
+          "value": "metrics_cpu.json"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Selected Prom File Timeline",
+      "datasource": "InfluxDB-Historical",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "query": "from(bucket: \"pdms_historical\")\n  |> range(start: 2026-04-27T14:45:00Z, stop: 2026-04-27T16:00:00Z)\n  |> filter(fn: (r) => r._measurement == \"prometheus_metric_file\")\n  |> filter(fn: (r) => r.source_file == \"${source_file}\")\n  |> filter(fn: (r) => r._field == \"value\")",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Success Rate (metrics_success_rate.json)",
+      "datasource": "InfluxDB-Historical",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "query": "from(bucket: \"pdms_historical\")\n  |> range(start: 2026-04-27T14:45:00Z, stop: 2026-04-27T16:00:00Z)\n  |> filter(fn: (r) => r._measurement == \"prometheus_metric_file\")\n  |> filter(fn: (r) => r.source_file == \"metrics_success_rate.json\")\n  |> filter(fn: (r) => r._field == \"value\")",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "HTTP Mean Latency (metrics_http_mean_latency.json)",
+      "datasource": "InfluxDB-Historical",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "query": "from(bucket: \"pdms_historical\")\n  |> range(start: 2026-04-27T14:45:00Z, stop: 2026-04-27T16:00:00Z)\n  |> filter(fn: (r) => r._measurement == \"prometheus_metric_file\")\n  |> filter(fn: (r) => r.source_file == \"metrics_http_mean_latency.json\")\n  |> filter(fn: (r) => r._field == \"value\")",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "PDMS Export Example (q_001.json)",
+      "datasource": "InfluxDB-Historical",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "query": "from(bucket: \"pdms_historical\")\n  |> range(start: 2026-04-27T14:45:00Z, stop: 2026-04-27T16:00:00Z)\n  |> filter(fn: (r) => r._measurement == \"pdms_export_metric\")\n  |> filter(fn: (r) => r.source_file == \"q_001.json\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> group(columns: [\"method\", \"uri\"])",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+services:
+  grafana-historical:
+    # digest resolved 2026-08-18 from Docker Hub. This is NOT proof of the digest pulled
+    # for the 2026-08-12..14 campaign, which was never recorded; collect_env_facts.sh now
+    # captures RepoDigests so future runs do record it. Swap image: for image@<digest>
+    # to pin by bytes rather than by tag.
+    # grafana/grafana:11.1.3 -> sha256:00c479a18130b90129a871c82f9f16f51f1aba09b891d6b1ee66e09d701cbb6f
+    image: grafana/grafana:11.1.3
+    container_name: pdms-historical-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - pdms_historical_grafana_data:/var/lib/grafana
+
+volumes:
+  pdms_historical_grafana_data:

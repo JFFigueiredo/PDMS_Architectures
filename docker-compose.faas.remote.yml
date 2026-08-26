@@ -1,0 +1,36 @@
+# PDMS FaaS — deploy em VM remota (DB e Kafka em <db-host>).
+# Não requer docker-compose.yml local.
+#
+# Na VM:
+#   docker compose -f docker-compose.faas.remote.yml up -d
+#   docker logs -f pdms-faas
+services:
+  pdms-faas:
+    image: pdms-faas:latest
+    container_name: pdms-faas
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://<db-host>:5432/pdms
+      SPRING_DATASOURCE_USERNAME: pdms_user
+      SPRING_DATASOURCE_PASSWORD: pdms_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: <db-host>:9092
+      max_inflight: "200"
+      read_timeout: "60s"
+      write_timeout: "120s"
+      exec_timeout: "120s"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.8'
+          memory: 6144M
+        reservations:
+          cpus: '1.5'
+          memory: 4096M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health 2>/dev/null | grep -q 'UP' || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 90s

@@ -1,0 +1,33 @@
+# Remote PDMS microservices (docker-compose.microservices.yml or .microservices-async.yml).
+# Apps VM: <app-host> — person :8080, snapshot :8081, consent :8082.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'pdms-monitor'
+
+scrape_configs:
+  - job_name: 'pdms-microservice-person'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['<app-host>:8080']
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    scheme: http
+
+  - job_name: 'pdms-microservice-snapshot'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['<app-host>:8081']
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    scheme: http
+
+  - job_name: 'pdms-microservice-consent'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['<app-host>:8082']
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    scheme: http

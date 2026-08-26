@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB-Historical
+    type: influxdb
+    access: proxy
+    isDefault: true
+    editable: true
+    url: http://host.docker.internal:8086
+    jsonData:
+      version: Flux
+      organization: pdms
+      defaultBucket: pdms_historical
+      tlsSkipVerify: true
+    secureJsonData:
+      token: pdms-historical-token

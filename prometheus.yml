@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'pdms-monitor'
+
+scrape_configs:
+  - job_name: 'pdms-app'
+    static_configs:
+      - targets: ['<app-host>:8080']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 10s
+    scrape_timeout: 5s

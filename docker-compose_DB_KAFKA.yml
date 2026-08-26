@@ -1,0 +1,96 @@
+# PDMS local infrastructure — postgres and kafka only.
+
+services:
+  postgres:
+    # WARNING: postgres:15 is a FLOATING tag; it moves with every 15.x patch release.
+    # The campaign capture reports server version 15.18. Pin postgres:15.18 (or the
+    # digest below) if you need to reproduce that exact server.
+    # digest resolved 2026-08-18 from Docker Hub. This is NOT proof of the digest pulled
+    # for the 2026-08-12..14 campaign, which was never recorded; collect_env_facts.sh now
+    # captures RepoDigests so future runs do record it. Swap image: for image@<digest>
+    # to pin by bytes rather than by tag.
+    # postgres:15 -> sha256:d74b71001bab4e6bf8422d59d314fcdc8d99f4b4a9a300842bc80f6108847b0e
+    image: postgres:15.18
+    container_name: pdms-postgres
+    # Default max_connections is 100. Each architecture is configured for 200
+    # total pooled connections (single-service apps 200; microservices 95+70+35),
+    # so 100 leaves no slot for pg_dump during collection — it fails with
+    # "sorry, too many clients already" and the collector still reports success,
+    # writing the error text into db_dump.dump. Must be set here: the data volume
+    # is destroyed by `docker compose down -v` on every run, so postgresql.auto.conf
+    # (ALTER SYSTEM) would not survive.
+    command: postgres -c max_connections=250
+    environment:
+      POSTGRES_DB: pdms
+      POSTGRES_USER: ${POSTGRES_USER:-pdms_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pdms_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pdms_user} -d pdms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Peak observed usage is 454MB (22% of 2048M) with a 99.85% cache hit rate,
+    # so this is headroom rather than a fix. shared_buffers is deliberately left
+    # at its default: raising it would change DB performance and there is no
+    # cache pressure to relieve.
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 3072M
+        reservations:
+          cpus: '0.5'
+          memory: 1536M
+
+  kafka:
+    # digest resolved 2026-08-18 from Docker Hub. This is NOT proof of the digest pulled
+    # for the 2026-08-12..14 campaign, which was never recorded; collect_env_facts.sh now
+    # captures RepoDigests so future runs do record it. Swap image: for image@<digest>
+    # to pin by bytes rather than by tag.
+    # confluentinc/cp-kafka:7.4.0 -> sha256:9080235b1e58a57ca16d480cba6c9cbde72619f2bd43b77d70bada5aecf7811a
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: pdms-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://<db-host>:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_LOG4J_LOGGERS: org.apache.kafka.image.loader.MetadataLoader=WARN
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Kafka peaked at 912MB of 1024M (89%) during write-heavy runs and hit its
+    # 0.5 CPU cap, risking OOM-kill and GC pressure mid-benchmark.
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 2048M
+        reservations:
+          cpus: '0.4'
+          memory: 1024M
+
+volumes:
+  postgres_data:
+  kafka_data:

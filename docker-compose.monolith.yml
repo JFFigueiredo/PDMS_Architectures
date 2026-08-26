@@ -1,0 +1,33 @@
+# PDMS Monolith — app service only (campaign: run on App VM; DB/Kafka on DB VM).
+#
+# Remote infra:
+#   POSTGRES_HOST=<db-host> KAFKA_HOST=<db-host> \
+#     docker compose -f docker-compose.monolith.yml up -d
+services:
+  pdms-monolith:
+    image: pdms-monolith:latest
+    container_name: pdms-monolith
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://<db-host>:5432/pdms
+      SPRING_DATASOURCE_USERNAME: pdms_user
+      SPRING_DATASOURCE_PASSWORD: pdms_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: <db-host>:9092
+    volumes:
+      - ./pdms-monolith/src/main/resources/jwt-keys:/app/jwt-keys:ro
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.8'
+          memory: 6144M
+        reservations:
+          cpus: '1.5'
+          memory: 4096M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

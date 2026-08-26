@@ -1,0 +1,38 @@
+# OpenFaaS stack for PDMS FaaS (Lambda-like: scale-to-zero, one request per instance, timeouts).
+# Deploy: 1) docker build -t pdms-faas:latest ./pdms-faas
+#        2) Ensure Postgres + Kafka are reachable FROM THE FUNCTION CONTAINER (not only from your laptop).
+#           Hostnames "postgres" / "kafka" only work if the function shares that Docker network.
+#           On Docker Desktop, try host.docker.internal; on Linux, use the host gateway IP or publish DB ports.
+#        3) faas-cli deploy -f pdms-faas/stack.yml
+#
+# Gateway is usually 127.0.0.1:8080; change if your OpenFaaS gateway is elsewhere.
+
+version: 1.0
+provider:
+  name: openfaas
+  gateway: http://127.0.0.1:8080
+
+functions:
+  pdms-faas:
+    image: pdms-faas:latest
+    skip_build: true
+    # Autoscaling (OpenFaaS on Kubernetes or faasd — not plain docker compose):
+    # 0 replicas when idle, scale up on traffic, scale back to 0 after quiet period.
+    # Requires gateway scale_from_zero (default on K8s/faasd) and a deployment that
+    # runs the OpenFaaS autoscaler (e.g. OpenFaaS Pro autoscaler or your operator setup).
+    labels:
+      com.openfaas.scale.min: "0"
+      com.openfaas.scale.max: "10"
+      com.openfaas.scale.zero: "true"
+      # How long with no load before scaling to zero (tune to reduce cold-start thrash)
+      com.openfaas.scale.zero-duration: "5m"
+    # of-watchdog env: timeouts and concurrency (can override Dockerfile defaults)
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/pdms
+      SPRING_DATASOURCE_USERNAME: pdms_user
+      SPRING_DATASOURCE_PASSWORD: pdms_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      read_timeout: "60s"
+      write_timeout: "120s"
+      exec_timeout: "120s"
+      max_inflight: "200"

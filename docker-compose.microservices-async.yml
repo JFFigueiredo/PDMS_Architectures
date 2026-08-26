@@ -1,0 +1,86 @@
+# PDMS Microservices (async): person + consent + snapshot — app services only.
+#
+# Remote infra:
+#   POSTGRES_HOST=<db-host> KAFKA_HOST=<db-host> \
+#     docker compose -f docker-compose.microservices-async.yml up -d
+version: '3.8'
+
+services:
+  pdms-person-async:
+    build:
+      context: ./pdms-microservice-person-async
+      dockerfile: Dockerfile
+    image: pdms-microservice-person-async:latest
+    container_name: pdms-person-async
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-<db-host>}:${POSTGRES_PORT:-5432}/pdms
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-pdms_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-pdms_password}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_HOST:-<db-host>}:${KAFKA_PORT:-9092}
+      SERVICES_SNAPSHOT_URL: http://pdms-snapshot-async:8081
+    volumes:
+      - ./pdms-monolith/src/main/resources/jwt-keys:/app/jwt-keys:ro
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2048M
+        reservations:
+          cpus: '0.67'
+          memory: 1200M
+
+  pdms-snapshot-async:
+    build:
+      context: ./pdms-microservice-snapshot-async
+      dockerfile: Dockerfile
+    image: pdms-microservice-snapshot-async:latest
+    container_name: pdms-snapshot-async
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-<db-host>}:${POSTGRES_PORT:-5432}/pdms
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-pdms_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-pdms_password}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_HOST:-<db-host>}:${KAFKA_PORT:-9092}
+      SERVICES_PERSON_URL: http://pdms-person-async:8080
+    volumes:
+      - ./pdms-monolith/src/main/resources/jwt-keys:/app/jwt-keys:ro
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 2048M
+        reservations:
+          cpus: '0.33'
+          memory: 1200M
+
+  pdms-consent-async:
+    build:
+      context: ./pdms-microservice-consent-async
+      dockerfile: Dockerfile
+    image: pdms-microservice-consent-async:latest
+    container_name: pdms-consent-async
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-<db-host>}:${POSTGRES_PORT:-5432}/pdms
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-pdms_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-pdms_password}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_HOST:-<db-host>}:${KAFKA_PORT:-9092}
+      SERVICES_PERSON_URL: http://pdms-person-async:8080
+      SERVICES_SNAPSHOT_URL: http://pdms-snapshot-async:8081
+    volumes:
+      - ./pdms-monolith/src/main/resources/jwt-keys:/app/jwt-keys:ro
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 2048M
+        reservations:
+          cpus: '0.20'
+          memory: 1200M

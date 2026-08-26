@@ -1,0 +1,2262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="PDMS - Consents Operations">
+      <stringProp name="TestPlan.comments">Consents Operations Tests: Baseline performance, Load testing (50-200 req/s), Schema comparison, Concurrent operations. UUIDs are loaded from person_id_for_consents.csv file (created by PersonIdForTesting on application startup).</stringProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="BASE_URL" elementType="Argument">
+            <stringProp name="Argument.name">BASE_URL</stringProp>
+            <stringProp name="Argument.value">http://<app-host>:8080</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="JWT_TOKEN" elementType="Argument">
+            <stringProp name="Argument.name">JWT_TOKEN</stringProp>
+            <stringProp name="Argument.value"></stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PERSON_IDS_FILE" elementType="Argument">
+            <stringProp name="Argument.name">PERSON_IDS_FILE</stringProp>
+            <stringProp name="Argument.value">person_id_for_consents.csv</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="1. Baseline Performance - Create Consent">
+        <intProp name="ThreadGroup.num_threads">0</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config - Person IDs" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">${PERSON_IDS_FILE}</stringProp>
+          <boolProp name="ignoreFirstLine">false</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">PERSON_ID</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate PERSON_ID" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">// Validate that PERSON_ID is set
+String personId = vars.get(&quot;PERSON_ID&quot;)
+String personIdRaw = personId != null ? personId : &quot;null&quot;
+
+// Check for empty, null, or EOF
+if (personId == null || personId.isEmpty() || personId.equals(&quot;&lt;EOF&gt;&quot;) || personId.trim().isEmpty()) {
+    log.error(&quot;=== PERSON_ID VALIDATION FAILED ===&quot;)
+    log.error(&quot;PERSON_ID value: &quot; + personIdRaw)
+    log.error(&quot;CSV file variable: &quot; + vars.get(&quot;PERSON_IDS_FILE&quot;))
+    log.error(&quot;Working directory: &quot; + System.getProperty(&quot;user.dir&quot;))
+    
+    // Check if file exists
+    String fileName = vars.get(&quot;PERSON_IDS_FILE&quot;)
+    if (fileName != null) {
+        java.io.File file = new java.io.File(fileName)
+        log.error(&quot;Checking file: &quot; + file.getAbsolutePath())
+        log.error(&quot;File exists: &quot; + file.exists())
+        if (file.exists()) {
+            log.error(&quot;File size: &quot; + file.length() + &quot; bytes&quot;)
+            log.error(&quot;File readable: &quot; + file.canRead())
+            
+            // Try to read first line
+            try {
+                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))
+                String firstLine = reader.readLine()
+                reader.close()
+                if (firstLine != null) {
+                    log.error(&quot;First line in file: &quot; + firstLine)
+                } else {
+                    log.error(&quot;File is empty (no lines)&quot;)
+                }
+            } catch (Exception e) {
+                log.error(&quot;Error reading file: &quot; + e.getMessage())
+            }
+        } else {
+            // Try absolute path from working directory
+            String workingDir = System.getProperty(&quot;user.dir&quot;)
+            java.io.File absFile = new java.io.File(workingDir, fileName)
+            log.error(&quot;Trying absolute path: &quot; + absFile.getAbsolutePath())
+            log.error(&quot;Absolute file exists: &quot; + absFile.exists())
+        }
+    }
+    
+    // Set a placeholder to prevent URI syntax error
+    vars.put(&quot;PERSON_ID&quot;, &quot;00000000-0000-0000-0000-000000000000&quot;)
+    log.warn(&quot;Using placeholder UUID to prevent test failure&quot;)
+    log.error(&quot;=== END PERSON_ID VALIDATION ===&quot;)
+} else {
+    log.debug(&quot;PERSON_ID is valid: &quot; + personId)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Random Consent Data" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.Random
+
+Random random = new Random()
+
+// Random consent types (weighted distribution across 13 types)
+String[] consentTypes = [&quot;MARKETING&quot;, 
+                        &quot;DATA_PROCESSING&quot;, &quot;DATA_PROCESSING&quot;,
+                        &quot;COMMUNICATION&quot;, &quot;COMMUNICATION&quot;,
+                        &quot;PROFILING&quot;, &quot;PROFILING&quot;,
+                        &quot;LOCATION&quot;,
+                        &quot;BIOMETRIC&quot;,
+                        &quot;HEALTH_DATA&quot;,
+                        &quot;FINANCIAL&quot;,
+                        &quot;SOCIAL_MEDIA&quot;,
+                        &quot;THIRD_PARTY_SHARING&quot;,
+                        &quot;RESEARCH&quot;,
+                        &quot;AUTOMATED_DECISION_MAKING&quot;]
+String consentType = consentTypes[random.nextInt(consentTypes.length)]
+vars.put(&quot;CONSENT_TYPE&quot;, consentType)
+
+// Random consent methods (weighted: WEB_FORM 60%, MOBILE_APP 30%, EMAIL 10%)
+String[] consentMethods = [&quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;,
+                          &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;,
+                          &quot;EMAIL&quot;]
+String consentMethod = consentMethods[random.nextInt(consentMethods.length)]
+vars.put(&quot;CONSENT_METHOD&quot;, consentMethod)
+
+// Random consent versions (v1.0 40%, v1.1 30%, v2.0 20%, v2.1 10%)
+String[] consentVersions = [&quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;,
+                           &quot;v1.1&quot;, &quot;v1.1&quot;, &quot;v1.1&quot;,
+                           &quot;v2.0&quot;, &quot;v2.0&quot;,
+                           &quot;v2.1&quot;]
+String consentVersion = consentVersions[random.nextInt(consentVersions.length)]
+vars.put(&quot;CONSENT_VERSION&quot;, consentVersion)
+
+// Random granted status (85% granted, 15% not granted - realistic distribution)
+boolean granted = random.nextDouble() &lt; 0.85
+vars.put(&quot;CONSENT_GRANTED&quot;, String.valueOf(granted))
+
+// Random expiration date (70% have expiration, 30% don&apos;t)
+String expiresAtJson = &quot;&quot;
+if (random.nextDouble() &lt; 0.70) {
+    // Random expiration between 30 days and 2 years from now
+    int daysToAdd = 30 + random.nextInt(730 - 30) // 30 to 730 days
+    Instant expiration = Instant.now().plus(daysToAdd, ChronoUnit.DAYS)
+    expiresAtJson = &quot;,\n  \&quot;expiresAt\&quot;: \&quot;&quot; + expiration.toString() + &quot;\&quot;&quot;
+}
+
+// Build complete JSON payload
+String jsonPayload = &quot;{\n&quot; +
+    &quot;  \&quot;consentType\&quot;: \&quot;&quot; + consentType + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;granted\&quot;: &quot; + granted + expiresAtJson + &quot;,\n&quot; +
+    &quot;  \&quot;consentMethod\&quot;: \&quot;&quot; + consentMethod + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;consentVersion\&quot;: \&quot;&quot; + consentVersion + &quot;\&quot;\n&quot; +
+    &quot;}&quot;
+
+vars.put(&quot;CONSENT_JSON_PAYLOAD&quot;, jsonPayload)
+
+log.debug(&quot;Generated consent - Type: &quot; + consentType + &quot;, Method: &quot; + consentMethod + &quot;, Version: &quot; + consentVersion + &quot;, Granted: &quot; + granted)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST Create Consent" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">${CONSENT_JSON_PAYLOAD}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">201</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="JSON Path Assertion - personId" enabled="true">
+            <stringProp name="JSON_PATH">$.personId</stringProp>
+            <stringProp name="EXPECTED_VALUE">${PERSON_ID}</stringProp>
+            <boolProp name="JSONVALIDATION">true</boolProp>
+            <boolProp name="EXPECT_NULL">false</boolProp>
+            <boolProp name="INVERT">false</boolProp>
+            <boolProp name="ISREGEX">false</boolProp>
+          </JSONPathAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="1a. Baseline Performance - List Consent" enabled="true">
+        <intProp name="ThreadGroup.num_threads">0</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config - Person IDs" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">${PERSON_IDS_FILE}</stringProp>
+          <boolProp name="ignoreFirstLine">false</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">PERSON_ID</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate PERSON_ID" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">// Validate that PERSON_ID is set
+String personId = vars.get(&quot;PERSON_ID&quot;)
+String personIdRaw = personId != null ? personId : &quot;null&quot;
+
+// Check for empty, null, or EOF
+if (personId == null || personId.isEmpty() || personId.equals(&quot;&lt;EOF&gt;&quot;) || personId.trim().isEmpty()) {
+    log.error(&quot;=== PERSON_ID VALIDATION FAILED ===&quot;)
+    log.error(&quot;PERSON_ID value: &quot; + personIdRaw)
+    log.error(&quot;CSV file variable: &quot; + vars.get(&quot;PERSON_IDS_FILE&quot;))
+    log.error(&quot;Working directory: &quot; + System.getProperty(&quot;user.dir&quot;))
+    
+    // Check if file exists
+    String fileName = vars.get(&quot;PERSON_IDS_FILE&quot;)
+    if (fileName != null) {
+        java.io.File file = new java.io.File(fileName)
+        log.error(&quot;Checking file: &quot; + file.getAbsolutePath())
+        log.error(&quot;File exists: &quot; + file.exists())
+        if (file.exists()) {
+            log.error(&quot;File size: &quot; + file.length() + &quot; bytes&quot;)
+            log.error(&quot;File readable: &quot; + file.canRead())
+            
+            // Try to read first line
+            try {
+                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))
+                String firstLine = reader.readLine()
+                reader.close()
+                if (firstLine != null) {
+                    log.error(&quot;First line in file: &quot; + firstLine)
+                } else {
+                    log.error(&quot;File is empty (no lines)&quot;)
+                }
+            } catch (Exception e) {
+                log.error(&quot;Error reading file: &quot; + e.getMessage())
+            }
+        } else {
+            // Try absolute path from working directory
+            String workingDir = System.getProperty(&quot;user.dir&quot;)
+            java.io.File absFile = new java.io.File(workingDir, fileName)
+            log.error(&quot;Trying absolute path: &quot; + absFile.getAbsolutePath())
+            log.error(&quot;Absolute file exists: &quot; + absFile.exists())
+        }
+    }
+    
+    // Set a placeholder to prevent URI syntax error
+    vars.put(&quot;PERSON_ID&quot;, &quot;00000000-0000-0000-0000-000000000000&quot;)
+    log.warn(&quot;Using placeholder UUID to prevent test failure&quot;)
+    log.error(&quot;=== END PERSON_ID VALIDATION ===&quot;)
+} else {
+    log.debug(&quot;PERSON_ID is valid: &quot; + personId)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET List Consents" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="1b. Baseline Performance - Update Consent" enabled="true">
+        <intProp name="ThreadGroup.num_threads">0</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config - Person IDs" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">${PERSON_IDS_FILE}</stringProp>
+          <boolProp name="ignoreFirstLine">false</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">PERSON_ID</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate PERSON_ID" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">// Validate that PERSON_ID is set
+String personId = vars.get(&quot;PERSON_ID&quot;)
+String personIdRaw = personId != null ? personId : &quot;null&quot;
+
+// Check for empty, null, or EOF
+if (personId == null || personId.isEmpty() || personId.equals(&quot;&lt;EOF&gt;&quot;) || personId.trim().isEmpty()) {
+    log.error(&quot;=== PERSON_ID VALIDATION FAILED ===&quot;)
+    log.error(&quot;PERSON_ID value: &quot; + personIdRaw)
+    log.error(&quot;CSV file variable: &quot; + vars.get(&quot;PERSON_IDS_FILE&quot;))
+    log.error(&quot;Working directory: &quot; + System.getProperty(&quot;user.dir&quot;))
+    
+    // Check if file exists
+    String fileName = vars.get(&quot;PERSON_IDS_FILE&quot;)
+    if (fileName != null) {
+        java.io.File file = new java.io.File(fileName)
+        log.error(&quot;Checking file: &quot; + file.getAbsolutePath())
+        log.error(&quot;File exists: &quot; + file.exists())
+        if (file.exists()) {
+            log.error(&quot;File size: &quot; + file.length() + &quot; bytes&quot;)
+            log.error(&quot;File readable: &quot; + file.canRead())
+            
+            // Try to read first line
+            try {
+                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))
+                String firstLine = reader.readLine()
+                reader.close()
+                if (firstLine != null) {
+                    log.error(&quot;First line in file: &quot; + firstLine)
+                } else {
+                    log.error(&quot;File is empty (no lines)&quot;)
+                }
+            } catch (Exception e) {
+                log.error(&quot;Error reading file: &quot; + e.getMessage())
+            }
+        } else {
+            // Try absolute path from working directory
+            String workingDir = System.getProperty(&quot;user.dir&quot;)
+            java.io.File absFile = new java.io.File(workingDir, fileName)
+            log.error(&quot;Trying absolute path: &quot; + absFile.getAbsolutePath())
+            log.error(&quot;Absolute file exists: &quot; + absFile.exists())
+        }
+    }
+    
+    // Set a placeholder to prevent URI syntax error
+    vars.put(&quot;PERSON_ID&quot;, &quot;00000000-0000-0000-0000-000000000000&quot;)
+    log.warn(&quot;Using placeholder UUID to prevent test failure&quot;)
+    log.error(&quot;=== END PERSON_ID VALIDATION ===&quot;)
+} else {
+    log.debug(&quot;PERSON_ID is valid: &quot; + personId)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Random Consent Data" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.Random
+
+Random random = new Random()
+
+// Random consent types (weighted distribution across 13 types)
+String[] consentTypes = [&quot;MARKETING&quot;, 
+                        &quot;DATA_PROCESSING&quot;, &quot;DATA_PROCESSING&quot;,
+                        &quot;COMMUNICATION&quot;, &quot;COMMUNICATION&quot;,
+                        &quot;PROFILING&quot;, &quot;PROFILING&quot;,
+                        &quot;LOCATION&quot;,
+                        &quot;BIOMETRIC&quot;,
+                        &quot;HEALTH_DATA&quot;,
+                        &quot;FINANCIAL&quot;,
+                        &quot;SOCIAL_MEDIA&quot;,
+                        &quot;THIRD_PARTY_SHARING&quot;,
+                        &quot;RESEARCH&quot;,
+                        &quot;AUTOMATED_DECISION_MAKING&quot;]
+String consentType = consentTypes[random.nextInt(consentTypes.length)]
+vars.put(&quot;CONSENT_TYPE&quot;, consentType)
+
+String[] consentMethods = [&quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;,
+                          &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;,
+                          &quot;EMAIL&quot;]
+String consentMethod = consentMethods[random.nextInt(consentMethods.length)]
+vars.put(&quot;CONSENT_METHOD&quot;, consentMethod)
+
+String[] consentVersions = [&quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;,
+                           &quot;v1.1&quot;, &quot;v1.1&quot;, &quot;v1.1&quot;,
+                           &quot;v2.0&quot;, &quot;v2.0&quot;,
+                           &quot;v2.1&quot;]
+String consentVersion = consentVersions[random.nextInt(consentVersions.length)]
+vars.put(&quot;CONSENT_VERSION&quot;, consentVersion)
+
+boolean granted = random.nextDouble() &lt; 0.85
+vars.put(&quot;CONSENT_GRANTED&quot;, String.valueOf(granted))
+
+String expiresAtJson = &quot;&quot;
+if (random.nextDouble() &lt; 0.70) {
+    int daysToAdd = 30 + random.nextInt(730 - 30)
+    Instant expiration = Instant.now().plus(daysToAdd, ChronoUnit.DAYS)
+    expiresAtJson = &quot;,\n  \&quot;expiresAt\&quot;: \&quot;&quot; + expiration.toString() + &quot;\&quot;&quot;
+}
+
+String jsonPayload = &quot;{\n&quot; +
+    &quot;  \&quot;consentType\&quot;: \&quot;&quot; + consentType + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;granted\&quot;: &quot; + granted + expiresAtJson + &quot;,\n&quot; +
+    &quot;  \&quot;consentMethod\&quot;: \&quot;&quot; + consentMethod + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;consentVersion\&quot;: \&quot;&quot; + consentVersion + &quot;\&quot;\n&quot; +
+    &quot;}&quot;
+vars.put(&quot;CONSENT_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET List Consents (for Update)" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - consentId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">CONSENT_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$[0].id</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Update" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for update, skipping PUT operation&quot;)
+    vars.put(&quot;SKIP_PUT&quot;, &quot;true&quot;)
+} else {
+    vars.put(&quot;SKIP_PUT&quot;, &quot;false&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip PUT if no consent" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_PUT&quot;) != &quot;true&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="PUT Update Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">PUT</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">${CONSENT_JSON_PAYLOAD}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="1b. Baseline Performance - Withdraw Consent" enabled="true">
+        <intProp name="ThreadGroup.num_threads">0</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config - Person IDs" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">${PERSON_IDS_FILE}</stringProp>
+          <boolProp name="ignoreFirstLine">false</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">PERSON_ID</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate PERSON_ID" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">// Validate that PERSON_ID is set
+String personId = vars.get(&quot;PERSON_ID&quot;)
+String personIdRaw = personId != null ? personId : &quot;null&quot;
+
+// Check for empty, null, or EOF
+if (personId == null || personId.isEmpty() || personId.equals(&quot;&lt;EOF&gt;&quot;) || personId.trim().isEmpty()) {
+    log.error(&quot;=== PERSON_ID VALIDATION FAILED ===&quot;)
+    log.error(&quot;PERSON_ID value: &quot; + personIdRaw)
+    log.error(&quot;CSV file variable: &quot; + vars.get(&quot;PERSON_IDS_FILE&quot;))
+    log.error(&quot;Working directory: &quot; + System.getProperty(&quot;user.dir&quot;))
+    
+    // Check if file exists
+    String fileName = vars.get(&quot;PERSON_IDS_FILE&quot;)
+    if (fileName != null) {
+        java.io.File file = new java.io.File(fileName)
+        log.error(&quot;Checking file: &quot; + file.getAbsolutePath())
+        log.error(&quot;File exists: &quot; + file.exists())
+        if (file.exists()) {
+            log.error(&quot;File size: &quot; + file.length() + &quot; bytes&quot;)
+            log.error(&quot;File readable: &quot; + file.canRead())
+            
+            // Try to read first line
+            try {
+                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))
+                String firstLine = reader.readLine()
+                reader.close()
+                if (firstLine != null) {
+                    log.error(&quot;First line in file: &quot; + firstLine)
+                } else {
+                    log.error(&quot;File is empty (no lines)&quot;)
+                }
+            } catch (Exception e) {
+                log.error(&quot;Error reading file: &quot; + e.getMessage())
+            }
+        } else {
+            // Try absolute path from working directory
+            String workingDir = System.getProperty(&quot;user.dir&quot;)
+            java.io.File absFile = new java.io.File(workingDir, fileName)
+            log.error(&quot;Trying absolute path: &quot; + absFile.getAbsolutePath())
+            log.error(&quot;Absolute file exists: &quot; + absFile.exists())
+        }
+    }
+    
+    // Set a placeholder to prevent URI syntax error
+    vars.put(&quot;PERSON_ID&quot;, &quot;00000000-0000-0000-0000-000000000000&quot;)
+    log.warn(&quot;Using placeholder UUID to prevent test failure&quot;)
+    log.error(&quot;=== END PERSON_ID VALIDATION ===&quot;)
+} else {
+    log.debug(&quot;PERSON_ID is valid: &quot; + personId)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Random Consent Data" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.Random
+
+Random random = new Random()
+
+// Random consent types (weighted distribution across 13 types)
+String[] consentTypes = [&quot;MARKETING&quot;, 
+                        &quot;DATA_PROCESSING&quot;, &quot;DATA_PROCESSING&quot;,
+                        &quot;COMMUNICATION&quot;, &quot;COMMUNICATION&quot;,
+                        &quot;PROFILING&quot;, &quot;PROFILING&quot;,
+                        &quot;LOCATION&quot;,
+                        &quot;BIOMETRIC&quot;,
+                        &quot;HEALTH_DATA&quot;,
+                        &quot;FINANCIAL&quot;,
+                        &quot;SOCIAL_MEDIA&quot;,
+                        &quot;THIRD_PARTY_SHARING&quot;,
+                        &quot;RESEARCH&quot;,
+                        &quot;AUTOMATED_DECISION_MAKING&quot;]
+String consentType = consentTypes[random.nextInt(consentTypes.length)]
+vars.put(&quot;CONSENT_TYPE&quot;, consentType)
+
+String[] consentMethods = [&quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;,
+                          &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;,
+                          &quot;EMAIL&quot;]
+String consentMethod = consentMethods[random.nextInt(consentMethods.length)]
+vars.put(&quot;CONSENT_METHOD&quot;, consentMethod)
+
+String[] consentVersions = [&quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;,
+                           &quot;v1.1&quot;, &quot;v1.1&quot;, &quot;v1.1&quot;,
+                           &quot;v2.0&quot;, &quot;v2.0&quot;,
+                           &quot;v2.1&quot;]
+String consentVersion = consentVersions[random.nextInt(consentVersions.length)]
+vars.put(&quot;CONSENT_VERSION&quot;, consentVersion)
+
+boolean granted = random.nextDouble() &lt; 0.85
+vars.put(&quot;CONSENT_GRANTED&quot;, String.valueOf(granted))
+
+String expiresAtJson = &quot;&quot;
+if (random.nextDouble() &lt; 0.70) {
+    int daysToAdd = 30 + random.nextInt(730 - 30)
+    Instant expiration = Instant.now().plus(daysToAdd, ChronoUnit.DAYS)
+    expiresAtJson = &quot;,\n  \&quot;expiresAt\&quot;: \&quot;&quot; + expiration.toString() + &quot;\&quot;&quot;
+}
+
+String jsonPayload = &quot;{\n&quot; +
+    &quot;  \&quot;consentType\&quot;: \&quot;&quot; + consentType + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;granted\&quot;: &quot; + granted + expiresAtJson + &quot;,\n&quot; +
+    &quot;  \&quot;consentMethod\&quot;: \&quot;&quot; + consentMethod + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;consentVersion\&quot;: \&quot;&quot; + consentVersion + &quot;\&quot;\n&quot; +
+    &quot;}&quot;
+vars.put(&quot;CONSENT_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET List Consents (for Withdraw)" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - consentId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">CONSENT_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$[0].id</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Withdraw" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for withdraw, skipping WITHDRAW operation&quot;)
+    vars.put(&quot;SKIP_WITHDRAW&quot;, &quot;true&quot;)
+} else {
+    vars.put(&quot;SKIP_WITHDRAW&quot;, &quot;false&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Withdrawal Reason" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+String[] withdrawalReasons = [
+    &quot;User requested withdrawal&quot;,
+    &quot;Privacy concerns&quot;,
+    &quot;No longer needed&quot;,
+    &quot;Service termination&quot;,
+    &quot;Policy change&quot;
+]
+String withdrawalReason = withdrawalReasons[random.nextInt(withdrawalReasons.length)]
+vars.put(&quot;WITHDRAWAL_REASON&quot;, withdrawalReason)
+
+String jsonPayload = &quot;{\n  \&quot;withdrawalReason\&quot;: \&quot;&quot; + withdrawalReason + &quot;\&quot;\n}&quot;
+vars.put(&quot;WITHDRAW_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip WITHDRAW if no consent" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_WITHDRAW&quot;) != &quot;true&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST Withdraw Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}/withdraw</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">${WITHDRAW_JSON_PAYLOAD}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="1c. Baseline Performance - Delete Consent" enabled="true">
+        <intProp name="ThreadGroup.num_threads">0</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config - Person IDs" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">${PERSON_IDS_FILE}</stringProp>
+          <boolProp name="ignoreFirstLine">false</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">PERSON_ID</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate PERSON_ID" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">// Validate that PERSON_ID is set
+String personId = vars.get(&quot;PERSON_ID&quot;)
+String personIdRaw = personId != null ? personId : &quot;null&quot;
+
+// Check for empty, null, or EOF
+if (personId == null || personId.isEmpty() || personId.equals(&quot;&lt;EOF&gt;&quot;) || personId.trim().isEmpty()) {
+    log.error(&quot;=== PERSON_ID VALIDATION FAILED ===&quot;)
+    log.error(&quot;PERSON_ID value: &quot; + personIdRaw)
+    log.error(&quot;CSV file variable: &quot; + vars.get(&quot;PERSON_IDS_FILE&quot;))
+    log.error(&quot;Working directory: &quot; + System.getProperty(&quot;user.dir&quot;))
+    
+    // Check if file exists
+    String fileName = vars.get(&quot;PERSON_IDS_FILE&quot;)
+    if (fileName != null) {
+        java.io.File file = new java.io.File(fileName)
+        log.error(&quot;Checking file: &quot; + file.getAbsolutePath())
+        log.error(&quot;File exists: &quot; + file.exists())
+        if (file.exists()) {
+            log.error(&quot;File size: &quot; + file.length() + &quot; bytes&quot;)
+            log.error(&quot;File readable: &quot; + file.canRead())
+            
+            // Try to read first line
+            try {
+                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))
+                String firstLine = reader.readLine()
+                reader.close()
+                if (firstLine != null) {
+                    log.error(&quot;First line in file: &quot; + firstLine)
+                } else {
+                    log.error(&quot;File is empty (no lines)&quot;)
+                }
+            } catch (Exception e) {
+                log.error(&quot;Error reading file: &quot; + e.getMessage())
+            }
+        } else {
+            // Try absolute path from working directory
+            String workingDir = System.getProperty(&quot;user.dir&quot;)
+            java.io.File absFile = new java.io.File(workingDir, fileName)
+            log.error(&quot;Trying absolute path: &quot; + absFile.getAbsolutePath())
+            log.error(&quot;Absolute file exists: &quot; + absFile.exists())
+        }
+    }
+    
+    // Set a placeholder to prevent URI syntax error
+    vars.put(&quot;PERSON_ID&quot;, &quot;00000000-0000-0000-0000-000000000000&quot;)
+    log.warn(&quot;Using placeholder UUID to prevent test failure&quot;)
+    log.error(&quot;=== END PERSON_ID VALIDATION ===&quot;)
+} else {
+    log.debug(&quot;PERSON_ID is valid: &quot; + personId)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET List Consents (for Delete)" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - consentId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">CONSENT_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$[0].id</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Delete" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for delete, skipping DELETE operation&quot;)
+    vars.put(&quot;SKIP_DELETE&quot;, &quot;true&quot;)
+} else {
+    vars.put(&quot;SKIP_DELETE&quot;, &quot;false&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip DELETE if no consent" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_DELETE&quot;) != &quot;true&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="DELETE Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">DELETE</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="CRUD Consents" enabled="true">
+        <intProp name="ThreadGroup.num_threads">10</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <longProp name="ThreadGroup.duration">300</longProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config - Person IDs" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">${PERSON_IDS_FILE}</stringProp>
+          <boolProp name="ignoreFirstLine">false</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">PERSON_ID</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Random Operation Selector" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+// Weighted distribution: 45% GET, 30% POST, 15% PUT, 5% DELETE, 5% WITHDRAW
+int operation = random.nextInt(100)
+if (operation &lt; 45) {
+    vars.put(&quot;OPERATION&quot;, &quot;GET&quot;)
+} else if (operation &lt; 75) {
+    vars.put(&quot;OPERATION&quot;, &quot;POST&quot;)
+} else if (operation &lt; 90) {
+    vars.put(&quot;OPERATION&quot;, &quot;PUT&quot;)
+} else if (operation &lt; 95) {
+    vars.put(&quot;OPERATION&quot;, &quot;DELETE&quot;)
+} else {
+    vars.put(&quot;OPERATION&quot;, &quot;WITHDRAW&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Random Consent Data" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.Random
+
+Random random = new Random()
+
+// Random consent types (weighted distribution across 13 types)
+String[] consentTypes = [&quot;MARKETING&quot;, 
+                        &quot;DATA_PROCESSING&quot;, &quot;DATA_PROCESSING&quot;,
+                        &quot;COMMUNICATION&quot;, &quot;COMMUNICATION&quot;,
+                        &quot;PROFILING&quot;, &quot;PROFILING&quot;,
+                        &quot;LOCATION&quot;,
+                        &quot;BIOMETRIC&quot;,
+                        &quot;HEALTH_DATA&quot;,
+                        &quot;FINANCIAL&quot;,
+                        &quot;SOCIAL_MEDIA&quot;,
+                        &quot;THIRD_PARTY_SHARING&quot;,
+                        &quot;RESEARCH&quot;,
+                        &quot;AUTOMATED_DECISION_MAKING&quot;]
+String consentType = consentTypes[random.nextInt(consentTypes.length)]
+vars.put(&quot;CONSENT_TYPE&quot;, consentType)
+
+String[] consentMethods = [&quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;,
+                          &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;,
+                          &quot;EMAIL&quot;]
+String consentMethod = consentMethods[random.nextInt(consentMethods.length)]
+vars.put(&quot;CONSENT_METHOD&quot;, consentMethod)
+
+String[] consentVersions = [&quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;,
+                           &quot;v1.1&quot;, &quot;v1.1&quot;, &quot;v1.1&quot;,
+                           &quot;v2.0&quot;, &quot;v2.0&quot;,
+                           &quot;v2.1&quot;]
+String consentVersion = consentVersions[random.nextInt(consentVersions.length)]
+vars.put(&quot;CONSENT_VERSION&quot;, consentVersion)
+
+boolean granted = random.nextDouble() &lt; 0.85
+vars.put(&quot;CONSENT_GRANTED&quot;, String.valueOf(granted))
+
+String expiresAtJson = &quot;&quot;
+if (random.nextDouble() &lt; 0.70) {
+    int daysToAdd = 30 + random.nextInt(730 - 30)
+    Instant expiration = Instant.now().plus(daysToAdd, ChronoUnit.DAYS)
+    expiresAtJson = &quot;,\n  \&quot;expiresAt\&quot;: \&quot;&quot; + expiration.toString() + &quot;\&quot;&quot;
+}
+
+String jsonPayload = &quot;{\n&quot; +
+    &quot;  \&quot;consentType\&quot;: \&quot;&quot; + consentType + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;granted\&quot;: &quot; + granted + expiresAtJson + &quot;,\n&quot; +
+    &quot;  \&quot;consentMethod\&quot;: \&quot;&quot; + consentMethod + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;consentVersion\&quot;: \&quot;&quot; + consentVersion + &quot;\&quot;\n&quot; +
+    &quot;}&quot;
+vars.put(&quot;CONSENT_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Withdrawal Reason" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+String[] withdrawalReasons = [
+    &quot;User requested withdrawal&quot;,
+    &quot;Privacy concerns&quot;,
+    &quot;No longer needed&quot;,
+    &quot;Service termination&quot;,
+    &quot;Policy change&quot;
+]
+String withdrawalReason = withdrawalReasons[random.nextInt(withdrawalReasons.length)]
+vars.put(&quot;WITHDRAWAL_REASON&quot;, withdrawalReason)
+
+String jsonPayload = &quot;{\n  \&quot;withdrawalReason\&quot;: \&quot;&quot; + withdrawalReason + &quot;\&quot;\n}&quot;
+vars.put(&quot;WITHDRAW_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Random Delay" enabled="true">
+          <stringProp name="ConstantTimer.delay">20</stringProp>
+          <stringProp name="RandomTimer.range">0</stringProp>
+        </UniformRandomTimer>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST Create Consent" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">${CONSENT_JSON_PAYLOAD}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49587">201</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="JSON Path Assertion - personId" enabled="true">
+            <stringProp name="JSON_PATH">$.personId</stringProp>
+            <stringProp name="EXPECTED_VALUE">${PERSON_ID}</stringProp>
+            <boolProp name="JSONVALIDATION">true</boolProp>
+            <boolProp name="EXPECT_NULL">false</boolProp>
+            <boolProp name="INVERT">false</boolProp>
+            <boolProp name="ISREGEX">false</boolProp>
+          </JSONPathAssertion>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET List Consents" enabled="true">
+          <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+            <collectionProp name="Asserion.test_strings">
+              <stringProp name="49586">200</stringProp>
+            </collectionProp>
+            <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+            <boolProp name="Assertion.assume_success">false</boolProp>
+            <intProp name="Assertion.test_type">1</intProp>
+            <stringProp name="Assertion.custom_message">FAILED</stringProp>
+          </ResponseAssertion>
+          <hashTree/>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Withdraw" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for delete, skipping DELETE operation&quot;)
+    vars.put(&quot;SKIP_WITHDRAW&quot;, &quot;true&quot;)
+} else {
+	    log.warn(&quot;SKIP_WITHDRAW GO &quot; + consentId)
+    vars.put(&quot;SKIP_WITHDRAW&quot;, &quot;false&quot;)
+}</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Update" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for delete, skipping DELETE operation&quot;)
+    vars.put(&quot;SKIP_PUT&quot;, &quot;true&quot;)
+} else {
+	    log.warn(&quot;Update GO &quot; + consentId)
+    vars.put(&quot;SKIP_PUT&quot;, &quot;false&quot;)
+}</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Delete" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for delete, skipping DELETE operation&quot;)
+    vars.put(&quot;SKIP_DELETE&quot;, &quot;true&quot;)
+} else {
+	    log.warn(&quot;Nwill delete &quot; + consentId)
+    vars.put(&quot;SKIP_DELETE&quot;, &quot;false&quot;)
+}</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - consentId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">CONSENT_ID</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$[0].id</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+          </JSONPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip PUT if no consent" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_PUT&quot;) != &quot;false&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="PUT Update Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">PUT</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">${CONSENT_JSON_PAYLOAD}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip WITHDRAW if no consent" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_WITHDRAW&quot;) != &quot;false&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST Withdraw Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}/withdraw</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">${WITHDRAW_JSON_PAYLOAD}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip DELETE if no consent" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_DELETE&quot;) != &quot;false&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="DELETE Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">DELETE</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="CRUD Consents MIX order" enabled="true">
+        <intProp name="ThreadGroup.num_threads">0</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <longProp name="ThreadGroup.duration">300</longProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <intProp name="LoopController.loops">-1</intProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config - Person IDs" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">${PERSON_IDS_FILE}</stringProp>
+          <boolProp name="ignoreFirstLine">false</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">PERSON_ID</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Random Operation Selector" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+// Weighted distribution: 45% GET, 30% POST, 15% PUT, 5% DELETE, 5% WITHDRAW
+int operation = random.nextInt(100)
+if (operation &lt; 45) {
+    vars.put(&quot;OPERATION&quot;, &quot;GET&quot;)
+} else if (operation &lt; 75) {
+    vars.put(&quot;OPERATION&quot;, &quot;POST&quot;)
+} else if (operation &lt; 90) {
+    vars.put(&quot;OPERATION&quot;, &quot;PUT&quot;)
+} else if (operation &lt; 95) {
+    vars.put(&quot;OPERATION&quot;, &quot;DELETE&quot;)
+} else {
+    vars.put(&quot;OPERATION&quot;, &quot;WITHDRAW&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Random Consent Data" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.Random
+
+Random random = new Random()
+
+// Random consent types (weighted distribution across 13 types)
+String[] consentTypes = [&quot;MARKETING&quot;, 
+                        &quot;DATA_PROCESSING&quot;, &quot;DATA_PROCESSING&quot;,
+                        &quot;COMMUNICATION&quot;, &quot;COMMUNICATION&quot;,
+                        &quot;PROFILING&quot;, &quot;PROFILING&quot;,
+                        &quot;LOCATION&quot;,
+                        &quot;BIOMETRIC&quot;,
+                        &quot;HEALTH_DATA&quot;,
+                        &quot;FINANCIAL&quot;,
+                        &quot;SOCIAL_MEDIA&quot;,
+                        &quot;THIRD_PARTY_SHARING&quot;,
+                        &quot;RESEARCH&quot;,
+                        &quot;AUTOMATED_DECISION_MAKING&quot;]
+String consentType = consentTypes[random.nextInt(consentTypes.length)]
+vars.put(&quot;CONSENT_TYPE&quot;, consentType)
+
+String[] consentMethods = [&quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;,
+                          &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;,
+                          &quot;EMAIL&quot;]
+String consentMethod = consentMethods[random.nextInt(consentMethods.length)]
+vars.put(&quot;CONSENT_METHOD&quot;, consentMethod)
+
+String[] consentVersions = [&quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;,
+                           &quot;v1.1&quot;, &quot;v1.1&quot;, &quot;v1.1&quot;,
+                           &quot;v2.0&quot;, &quot;v2.0&quot;,
+                           &quot;v2.1&quot;]
+String consentVersion = consentVersions[random.nextInt(consentVersions.length)]
+vars.put(&quot;CONSENT_VERSION&quot;, consentVersion)
+
+boolean granted = random.nextDouble() &lt; 0.85
+vars.put(&quot;CONSENT_GRANTED&quot;, String.valueOf(granted))
+
+String expiresAtJson = &quot;&quot;
+if (random.nextDouble() &lt; 0.70) {
+    int daysToAdd = 30 + random.nextInt(730 - 30)
+    Instant expiration = Instant.now().plus(daysToAdd, ChronoUnit.DAYS)
+    expiresAtJson = &quot;,\n  \&quot;expiresAt\&quot;: \&quot;&quot; + expiration.toString() + &quot;\&quot;&quot;
+}
+
+String jsonPayload = &quot;{\n&quot; +
+    &quot;  \&quot;consentType\&quot;: \&quot;&quot; + consentType + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;granted\&quot;: &quot; + granted + expiresAtJson + &quot;,\n&quot; +
+    &quot;  \&quot;consentMethod\&quot;: \&quot;&quot; + consentMethod + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;consentVersion\&quot;: \&quot;&quot; + consentVersion + &quot;\&quot;\n&quot; +
+    &quot;}&quot;
+vars.put(&quot;CONSENT_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Random Delay" enabled="true">
+          <stringProp name="ConstantTimer.delay">20</stringProp>
+          <stringProp name="RandomTimer.range">0</stringProp>
+        </UniformRandomTimer>
+        <hashTree/>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - GET (50%)" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;OPERATION&quot;) == &quot;GET&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET List Consents" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - POST (30%)" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;OPERATION&quot;) == &quot;POST&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST Create Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">${CONSENT_JSON_PAYLOAD}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49587">201</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPathAssertion guiclass="JSONPathAssertionGui" testclass="JSONPathAssertion" testname="JSON Path Assertion - personId" enabled="true">
+              <stringProp name="JSON_PATH">$.personId</stringProp>
+              <stringProp name="EXPECTED_VALUE">${PERSON_ID}</stringProp>
+              <boolProp name="JSONVALIDATION">true</boolProp>
+              <boolProp name="EXPECT_NULL">false</boolProp>
+              <boolProp name="INVERT">false</boolProp>
+              <boolProp name="ISREGEX">false</boolProp>
+            </JSONPathAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - PUT (15%)" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;OPERATION&quot;) == &quot;PUT&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET List Consents (for Update)" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - consentId" enabled="true">
+              <stringProp name="JSONPostProcessor.referenceNames">CONSENT_ID</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$[0].id</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+            </JSONPostProcessor>
+            <hashTree/>
+          </hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Update" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for update, skipping PUT operation&quot;)
+    vars.put(&quot;SKIP_PUT&quot;, &quot;true&quot;)
+} else {
+    vars.put(&quot;SKIP_PUT&quot;, &quot;false&quot;)
+}</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip PUT if no consent" enabled="true">
+            <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_PUT&quot;) != &quot;true&quot;)}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp>
+            <boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="PUT Update Consent" enabled="true">
+              <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+              <stringProp name="HTTPSampler.port">8080</stringProp>
+              <stringProp name="HTTPSampler.protocol">http</stringProp>
+              <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}</stringProp>
+              <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+              <stringProp name="HTTPSampler.method">PUT</stringProp>
+              <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+              <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+                <collectionProp name="Arguments.arguments">
+                  <elementProp name="" elementType="HTTPArgument">
+                    <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                    <stringProp name="Argument.value">${CONSENT_JSON_PAYLOAD}</stringProp>
+                    <stringProp name="Argument.metadata">=</stringProp>
+                  </elementProp>
+                </collectionProp>
+              </elementProp>
+            </HTTPSamplerProxy>
+            <hashTree>
+              <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+                <collectionProp name="HeaderManager.headers">
+                  <elementProp name="" elementType="Header">
+                    <stringProp name="Header.name">Content-Type</stringProp>
+                    <stringProp name="Header.value">application/json</stringProp>
+                  </elementProp>
+                  <elementProp name="" elementType="Header">
+                    <stringProp name="Header.name">Authorization</stringProp>
+                    <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                  </elementProp>
+                </collectionProp>
+              </HeaderManager>
+              <hashTree/>
+              <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+                <collectionProp name="Asserion.test_strings">
+                  <stringProp name="49586">200</stringProp>
+                </collectionProp>
+                <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+                <boolProp name="Assertion.assume_success">false</boolProp>
+                <intProp name="Assertion.test_type">1</intProp>
+                <stringProp name="Assertion.custom_message">FAILED</stringProp>
+              </ResponseAssertion>
+              <hashTree/>
+            </hashTree>
+          </hashTree>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - WITHDRAW (5%)" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;OPERATION&quot;) == &quot;WITHDRAW&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET List Consents (for Withdraw)" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - consentId" enabled="true">
+              <stringProp name="JSONPostProcessor.referenceNames">CONSENT_ID</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$[0].id</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+            </JSONPostProcessor>
+            <hashTree/>
+          </hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Withdraw" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for withdraw, skipping WITHDRAW operation&quot;)
+    vars.put(&quot;SKIP_WITHDRAW&quot;, &quot;true&quot;)
+} else {
+    vars.put(&quot;SKIP_WITHDRAW&quot;, &quot;false&quot;)
+}</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Withdrawal Reason" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+String[] withdrawalReasons = [
+    &quot;User requested withdrawal&quot;,
+    &quot;Privacy concerns&quot;,
+    &quot;No longer needed&quot;,
+    &quot;Service termination&quot;,
+    &quot;Policy change&quot;
+]
+String withdrawalReason = withdrawalReasons[random.nextInt(withdrawalReasons.length)]
+vars.put(&quot;WITHDRAWAL_REASON&quot;, withdrawalReason)
+
+String jsonPayload = &quot;{\n  \&quot;withdrawalReason\&quot;: \&quot;&quot; + withdrawalReason + &quot;\&quot;\n}&quot;
+vars.put(&quot;WITHDRAW_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip WITHDRAW if no consent" enabled="true">
+            <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_WITHDRAW&quot;) != &quot;false&quot;)}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp>
+            <boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST Withdraw Consent" enabled="true">
+              <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+              <stringProp name="HTTPSampler.port">8080</stringProp>
+              <stringProp name="HTTPSampler.protocol">http</stringProp>
+              <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}/withdraw</stringProp>
+              <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+              <stringProp name="HTTPSampler.method">POST</stringProp>
+              <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+              <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+                <collectionProp name="Arguments.arguments">
+                  <elementProp name="" elementType="HTTPArgument">
+                    <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                    <stringProp name="Argument.value">${WITHDRAW_JSON_PAYLOAD}</stringProp>
+                    <stringProp name="Argument.metadata">=</stringProp>
+                  </elementProp>
+                </collectionProp>
+              </elementProp>
+            </HTTPSamplerProxy>
+            <hashTree>
+              <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+                <collectionProp name="HeaderManager.headers">
+                  <elementProp name="" elementType="Header">
+                    <stringProp name="Header.name">Content-Type</stringProp>
+                    <stringProp name="Header.value">application/json</stringProp>
+                  </elementProp>
+                  <elementProp name="" elementType="Header">
+                    <stringProp name="Header.name">Authorization</stringProp>
+                    <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                  </elementProp>
+                </collectionProp>
+              </HeaderManager>
+              <hashTree/>
+              <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+                <collectionProp name="Asserion.test_strings">
+                  <stringProp name="49586">200</stringProp>
+                </collectionProp>
+                <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+                <boolProp name="Assertion.assume_success">false</boolProp>
+                <intProp name="Assertion.test_type">1</intProp>
+                <stringProp name="Assertion.custom_message">FAILED</stringProp>
+              </ResponseAssertion>
+              <hashTree/>
+            </hashTree>
+          </hashTree>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - DELETE (5%)" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;OPERATION&quot;) == &quot;DELETE&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET List Consents (for Delete)" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="JSON Extractor - consentId" enabled="true">
+              <stringProp name="JSONPostProcessor.referenceNames">CONSENT_ID</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$[0].id</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+            </JSONPostProcessor>
+            <hashTree/>
+          </hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Validate CONSENT_ID for Delete" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">String consentId = vars.get(&quot;CONSENT_ID&quot;)
+if (consentId == null || consentId.isEmpty() || consentId.equals(&quot;&lt;EOF&gt;&quot;)) {
+    log.warn(&quot;No consent found for delete, skipping DELETE operation&quot;)
+    vars.put(&quot;SKIP_DELETE&quot;, &quot;true&quot;)
+} else {
+    vars.put(&quot;SKIP_DELETE&quot;, &quot;false&quot;)
+}</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - Skip DELETE if no consent" enabled="true">
+            <stringProp name="IfController.condition">${__groovy(vars.get(&quot;SKIP_DELETE&quot;) != &quot;true&quot;)}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp>
+            <boolProp name="IfController.useExpression">true</boolProp>
+          </IfController>
+          <hashTree>
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="DELETE Consent" enabled="true">
+              <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+              <stringProp name="HTTPSampler.port">8080</stringProp>
+              <stringProp name="HTTPSampler.protocol">http</stringProp>
+              <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents/${CONSENT_ID}</stringProp>
+              <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+              <stringProp name="HTTPSampler.method">DELETE</stringProp>
+              <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+              <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+                <collectionProp name="Arguments.arguments"/>
+              </elementProp>
+            </HTTPSamplerProxy>
+            <hashTree>
+              <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+                <collectionProp name="HeaderManager.headers">
+                  <elementProp name="" elementType="Header">
+                    <stringProp name="Header.name">Content-Type</stringProp>
+                    <stringProp name="Header.value">application/json</stringProp>
+                  </elementProp>
+                  <elementProp name="" elementType="Header">
+                    <stringProp name="Header.name">Authorization</stringProp>
+                    <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                  </elementProp>
+                </collectionProp>
+              </HeaderManager>
+              <hashTree/>
+              <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+                <collectionProp name="Asserion.test_strings">
+                  <stringProp name="49586">200</stringProp>
+                </collectionProp>
+                <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+                <boolProp name="Assertion.assume_success">false</boolProp>
+                <intProp name="Assertion.test_type">1</intProp>
+                <stringProp name="Assertion.custom_message">FAILED</stringProp>
+              </ResponseAssertion>
+              <hashTree/>
+            </hashTree>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="8. Concurrent Operations - Read/Write Mix" enabled="true">
+        <intProp name="ThreadGroup.num_threads">0</intProp>
+        <intProp name="ThreadGroup.ramp_time">1</intProp>
+        <longProp name="ThreadGroup.duration">300</longProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">1</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </ThreadGroup>
+      <hashTree>
+        <CSVDataSet guiclass="TestBeanGUI" testclass="CSVDataSet" testname="CSV Data Set Config - Person IDs" enabled="true">
+          <stringProp name="delimiter">,</stringProp>
+          <stringProp name="fileEncoding">UTF-8</stringProp>
+          <stringProp name="filename">${PERSON_IDS_FILE}</stringProp>
+          <boolProp name="ignoreFirstLine">false</boolProp>
+          <boolProp name="quotedData">false</boolProp>
+          <boolProp name="recycle">true</boolProp>
+          <stringProp name="shareMode">shareMode.all</stringProp>
+          <boolProp name="stopThread">false</boolProp>
+          <stringProp name="variableNames">PERSON_ID</stringProp>
+        </CSVDataSet>
+        <hashTree/>
+        <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Random Operation Selector" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">import java.util.Random
+
+Random random = new Random()
+// 80% chance for GET (list consents), 20% chance for POST (create consent)
+int operation = random.nextInt(100)
+if (operation &lt; 80) {
+    vars.put(&quot;OPERATION&quot;, &quot;GET&quot;)
+} else {
+    vars.put(&quot;OPERATION&quot;, &quot;POST&quot;)
+}</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223PreProcessor>
+        <hashTree/>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - GET (80%)" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;OPERATION&quot;) == &quot;GET&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET Consents" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If Controller - POST (20%)" enabled="true">
+          <stringProp name="IfController.condition">${__groovy(vars.get(&quot;OPERATION&quot;) == &quot;POST&quot;)}</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+          <boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Random Consent Data" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.Random
+
+Random random = new Random()
+
+String[] consentTypes = [&quot;MARKETING&quot;, &quot;MARKETING&quot;, &quot;MARKETING&quot;, &quot;MARKETING&quot;, &quot;MARKETING&quot;,
+                        &quot;ANALYTICS&quot;, &quot;ANALYTICS&quot;, &quot;ANALYTICS&quot;,
+                        &quot;DATA_PROCESSING&quot;, &quot;DATA_PROCESSING&quot;]
+String consentType = consentTypes[random.nextInt(consentTypes.length)]
+vars.put(&quot;CONSENT_TYPE&quot;, consentType)
+
+String[] consentMethods = [&quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;, &quot;WEB_FORM&quot;,
+                          &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;, &quot;MOBILE_APP&quot;,
+                          &quot;EMAIL&quot;]
+String consentMethod = consentMethods[random.nextInt(consentMethods.length)]
+vars.put(&quot;CONSENT_METHOD&quot;, consentMethod)
+
+String[] consentVersions = [&quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;, &quot;v1.0&quot;,
+                           &quot;v1.1&quot;, &quot;v1.1&quot;, &quot;v1.1&quot;,
+                           &quot;v2.0&quot;, &quot;v2.0&quot;,
+                           &quot;v2.1&quot;]
+String consentVersion = consentVersions[random.nextInt(consentVersions.length)]
+vars.put(&quot;CONSENT_VERSION&quot;, consentVersion)
+
+boolean granted = random.nextDouble() &lt; 0.85
+vars.put(&quot;CONSENT_GRANTED&quot;, String.valueOf(granted))
+
+String expiresAtJson = &quot;&quot;
+if (random.nextDouble() &lt; 0.70) {
+    int daysToAdd = 30 + random.nextInt(730 - 30)
+    Instant expiration = Instant.now().plus(daysToAdd, ChronoUnit.DAYS)
+    expiresAtJson = &quot;,\n  \&quot;expiresAt\&quot;: \&quot;&quot; + expiration.toString() + &quot;\&quot;&quot;
+}
+
+String jsonPayload = &quot;{\n&quot; +
+    &quot;  \&quot;consentType\&quot;: \&quot;&quot; + consentType + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;granted\&quot;: &quot; + granted + expiresAtJson + &quot;,\n&quot; +
+    &quot;  \&quot;consentMethod\&quot;: \&quot;&quot; + consentMethod + &quot;\&quot;,\n&quot; +
+    &quot;  \&quot;consentVersion\&quot;: \&quot;&quot; + consentVersion + &quot;\&quot;\n&quot; +
+    &quot;}&quot;
+vars.put(&quot;CONSENT_JSON_PAYLOAD&quot;, jsonPayload)</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST Consent" enabled="true">
+            <stringProp name="HTTPSampler.domain"><app-host></stringProp>
+            <stringProp name="HTTPSampler.port">8080</stringProp>
+            <stringProp name="HTTPSampler.protocol">http</stringProp>
+            <stringProp name="HTTPSampler.path">/api/person/${PERSON_ID}/consents</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">${CONSENT_JSON_PAYLOAD}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Content-Type</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Authorization</stringProp>
+                  <stringProp name="Header.value">Bearer ${JWT_TOKEN}</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Response Code Assertion" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49587">201</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">1</intProp>
+              <stringProp name="Assertion.custom_message">FAILED</stringProp>
+            </ResponseAssertion>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>false</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>true</requestHeaders>
+            <responseDataOnError>true</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename"></stringProp>
+      </ResultCollector>
+      <hashTree/>
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report" enabled="true">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>false</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <url>true</url>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="filename"></stringProp>
+      </ResultCollector>
+      <hashTree/>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
