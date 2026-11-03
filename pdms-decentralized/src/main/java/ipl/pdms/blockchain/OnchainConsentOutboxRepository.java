@@ -4,10 +4,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.postgresql.util.PGobject;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Set;
 
 @Repository
 @RequiredArgsConstructor
@@ -29,23 +31,38 @@ public class OnchainConsentOutboxRepository {
         );
     }
 
-    public List<PendingOnchainRow> findPending(int limit) {
-        return jdbc.query(
+    public List<PendingOnchainRow> findPending(int limit, Set<String> allowedTypes) {
+        return findPending(limit, allowedTypes, Set.of());
+    }
+
+    public List<PendingOnchainRow> findPending(int limit, Set<String> allowedTypes, Set<UUID> excludedIds) {
+        if (allowedTypes.isEmpty()) return List.of();
+        var parameters = new java.util.HashMap<String, Object>();
+        parameters.put("types", allowedTypes);
+        parameters.put("limit", limit);
+        String exclusion = "";
+        if (!excludedIds.isEmpty()) {
+            exclusion = " AND id NOT IN (:excludedIds)";
+            parameters.put("excludedIds", excludedIds);
+        }
+        return new NamedParameterJdbcTemplate(jdbc).query(
                 """
                 SELECT id, consent_id, person_id, anchor_type, consent_snapshot::text AS consent_json
                 FROM onchain_consent_outbox
-                WHERE status = 'PENDING'
-                ORDER BY created_at
-                LIMIT ?
+                WHERE status = 'PENDING' AND anchor_type IN (:types)
+                """ + exclusion + """
+
+                ORDER BY created_at, id
+                LIMIT :limit FOR UPDATE SKIP LOCKED
                 """,
+                parameters,
                 (rs, row) -> new PendingOnchainRow(
                         rs.getObject("id", UUID.class),
                         rs.getObject("consent_id", UUID.class),
                         rs.getObject("person_id", UUID.class),
                         rs.getString("anchor_type"),
                         rs.getString("consent_json")
-                ),
-                limit
+                )
         );
     }
 

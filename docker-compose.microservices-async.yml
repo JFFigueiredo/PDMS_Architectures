@@ -13,6 +13,8 @@ services:
     image: pdms-microservice-person-async:latest
     container_name: pdms-person-async
     environment:
+      PDMS_OUTBOX_ADMIN_TOKEN: ${PDMS_OUTBOX_ADMIN_TOKEN:-}
+      SPRING_FLYWAY_ENABLED: ${PDMS_FLYWAY_ENABLED:-false}
       SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-<db-host>}:${POSTGRES_PORT:-5432}/pdms
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-pdms_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-pdms_password}
@@ -39,6 +41,8 @@ services:
     image: pdms-microservice-snapshot-async:latest
     container_name: pdms-snapshot-async
     environment:
+      PDMS_OUTBOX_ADMIN_TOKEN: ${PDMS_OUTBOX_ADMIN_TOKEN:-}
+      SPRING_FLYWAY_ENABLED: ${PDMS_FLYWAY_ENABLED:-false}
       SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-<db-host>}:${POSTGRES_PORT:-5432}/pdms
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-pdms_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-pdms_password}
@@ -65,6 +69,8 @@ services:
     image: pdms-microservice-consent-async:latest
     container_name: pdms-consent-async
     environment:
+      PDMS_OUTBOX_ADMIN_TOKEN: ${PDMS_OUTBOX_ADMIN_TOKEN:-}
+      SPRING_FLYWAY_ENABLED: ${PDMS_FLYWAY_ENABLED:-false}
       SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-<db-host>}:${POSTGRES_PORT:-5432}/pdms
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-pdms_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-pdms_password}

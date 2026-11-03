@@ -3,10 +3,10 @@ pragma solidity ^0.8.19;
 
 /**
  * Minimal consent integrity anchor for permissioned Besu networks.
- * Stores no PII on-chain. consentId and personId are per-subject salted HMACs, not the
- * raw UUIDs: the salt lives off-chain in person_anchor_salt and is destroyed on erasure,
- * so anchors for an erased subject can no longer be recomputed or linked to each other.
- * payloadHash is SHA-256 over the canonical consent JSON (same as the PG hash chain).
+ * The Java client supplies consentId and personId as deterministic SHA-256 digests
+ * of UUID bytes. No per-subject salt or HMAC is implemented. These stable pseudonyms
+ * keep anchors carrying the same digest linkable after off-chain erasure.
+ * payloadHash is SHA-256 over the canonical consent payload used by the PG hash chain.
  */
 contract ConsentAnchor {
     event Anchored(

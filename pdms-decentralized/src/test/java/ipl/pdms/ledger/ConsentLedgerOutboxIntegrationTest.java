@@ -4,9 +4,12 @@ import ipl.pdms.IntegrationTestBase;
 import ipl.pdms.controller.dto.CreatePersonRequestDto;
 import ipl.pdms.domain.Consent;
 import ipl.pdms.outbox.OutboxService;
+import ipl.pdms.outbox.runtime.RuntimeOutboxControl;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import ipl.pdms.security.TestJwtTokenGenerator;
 import ipl.pdms.security.TestSecurityConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -36,6 +39,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("integration-test")
 @Import(TestSecurityConfiguration.class)
 class ConsentLedgerOutboxIntegrationTest extends IntegrationTestBase {
+
+    @Autowired
+    private RuntimeOutboxControl runtimeControl;
+
+    @BeforeEach
+    void enableDecentralizedProcessing() {
+        var change = new ObjectMapper().createObjectNode()
+                .put("expectedVersion", runtimeControl.status().snapshot().version())
+                .put("expectedInstanceId", runtimeControl.status().instanceId())
+                .put("requestId", UUID.randomUUID().toString())
+                .put("reason", "Enable processing for ledger integration test")
+                .put("enabled", true);
+        change.putArray("allowedEventTypes");
+        runtimeControl.change(change);
+    }
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -68,9 +86,8 @@ class ConsentLedgerOutboxIntegrationTest extends IntegrationTestBase {
         assertThat(createResponse.getBody()).isNotNull();
         UUID consentId = createResponse.getBody().id();
 
-        assertThat(countPendingOutboxForConsent(consentId)).isPositive();
 
-        outboxService.processOutboxEvents();
+        processLedgerOutbox();
 
         assertThat(countPendingOutboxForConsent(consentId)).isZero();
 
@@ -102,7 +119,7 @@ class ConsentLedgerOutboxIntegrationTest extends IntegrationTestBase {
                 Consent.class
         );
         UUID consentId = createResponse.getBody().id();
-        outboxService.processOutboxEvents();
+        processLedgerOutbox();
         assertThat(fetchAnchors(consentId)).hasSize(1);
         String firstChain = (String) fetchAnchors(consentId).getFirst().get("chain_hash");
 
@@ -120,7 +137,7 @@ class ConsentLedgerOutboxIntegrationTest extends IntegrationTestBase {
                 Consent.class
         );
 
-        outboxService.processOutboxEvents();
+        processLedgerOutbox();
 
         List<Map<String, Object>> anchors = fetchAnchors(consentId);
         assertThat(anchors).hasSize(2);
@@ -131,6 +148,44 @@ class ConsentLedgerOutboxIntegrationTest extends IntegrationTestBase {
         assertThat(updated.get("previous_hash")).isEqualTo(firstChain);
         assertThat(updated.get("chain_hash")).asString().matches("[a-f0-9]{64}");
         assertThat(updated.get("payload_hash")).asString().matches("[a-f0-9]{64}");
+    }
+
+    private void processLedgerOutbox() {
+        outboxService.processOutboxEvents();
+        long deadline = System.nanoTime() + java.time.Duration.ofSeconds(10).toNanos();
+        while (jdbcTemplate.queryForObject("SELECT count(*) FROM outbox WHERE event_type = 'CONSENT_LEDGER_ANCHOR'",
+                Long.class) > 0 && System.nanoTime() < deadline) {
+            try { Thread.sleep(25); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+        }
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM outbox WHERE event_type = 'CONSENT_LEDGER_ANCHOR'", Long.class)).isZero();
+    }
+
+    @Test
+    void anchorsWhileOrdinaryProcessingIsPausedAndLeavesOrdinaryEventsQueued() {
+        HttpHeaders headers = createHeaders();
+        UUID personId = createPerson(headers);
+        var response = restTemplate.exchange(getBaseUrl() + "/api/person/" + personId + "/consents", HttpMethod.POST,
+                new HttpEntity<>(Map.of("consentType", "MARKETING", "granted", true,
+                        "consentMethod", "WEB", "consentVersion", "1.0"), headers), Consent.class);
+        assertThat(response.getStatusCode()).isIn(HttpStatus.CREATED, HttpStatus.OK);
+        processLedgerOutbox();
+        var pause = new ObjectMapper().createObjectNode()
+                .put("expectedVersion", runtimeControl.status().snapshot().version())
+                .put("expectedInstanceId", runtimeControl.status().instanceId())
+                .put("requestId", UUID.randomUUID().toString()).put("reason", "Pause ordinary processing")
+                .put("enabled", false);
+        runtimeControl.change(pause);
+        // Enqueue a separate diagnostic anchor after disable; business HTTP is now intentionally refused.
+        var consentMap = new ObjectMapper().findAndRegisterModules().convertValue(response.getBody(), Map.class);
+        outboxService.saveEvent("CONSENT", response.getBody().id().toString(), "CONSENT_LEDGER_ANCHOR",
+                Map.of("anchorType", "CONSENT_UPDATED", "personId", personId.toString(), "consent", consentMap));
+        processLedgerOutbox();
+        assertThat(fetchAnchors(response.getBody().id())).hasSize(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM outbox WHERE event_type IN ('PERSON_CREATED', 'PERSON_SNAPSHOT_CREATED') AND processing_status = 'PENDING'", Long.class)).isPositive();
+        assertThat(runtimeControl.status().enabled()).isFalse();
+        assertThat(restTemplate.exchange(getBaseUrl() + "/api/person/" + personId, HttpMethod.GET,
+                new HttpEntity<>(headers), String.class).getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     private long countPendingOutboxForConsent(UUID consentId) {

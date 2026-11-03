@@ -4,6 +4,9 @@ import ipl.pdms.IntegrationTestBase;
 import ipl.pdms.controller.dto.CreatePersonRequestDto;
 import ipl.pdms.domain.Consent;
 import ipl.pdms.outbox.OutboxService;
+import ipl.pdms.outbox.runtime.RuntimeOutboxControl;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import ipl.pdms.security.TestJwtTokenGenerator;
 import ipl.pdms.security.TestSecurityConfiguration;
 import org.junit.jupiter.api.Test;
@@ -44,6 +47,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("integration-test")
 @Import(TestSecurityConfiguration.class)
 class BesuOnchainLedgerIntegrationTest extends IntegrationTestBase {
+
+    @Autowired
+    private RuntimeOutboxControl runtimeControl;
+
+    @BeforeEach
+    void enableDecentralizedProcessing() {
+        var change = new ObjectMapper().createObjectNode()
+                .put("expectedVersion", runtimeControl.status().snapshot().version())
+                .put("expectedInstanceId", runtimeControl.status().instanceId())
+                .put("requestId", UUID.randomUUID().toString())
+                .put("reason", "Enable processing for Besu integration test")
+                .put("enabled", true);
+        change.putArray("allowedEventTypes");
+        runtimeControl.change(change);
+    }
 
     @Container
     static GenericContainer<?> besu = new GenericContainer<>(DockerImageName.parse("hyperledger/besu:24.3"))

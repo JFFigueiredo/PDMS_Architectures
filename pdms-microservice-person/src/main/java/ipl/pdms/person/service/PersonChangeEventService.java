@@ -82,8 +82,18 @@ public class PersonChangeEventService {
     }
 
     public void publishPersonDeletedEvent(UUID personId) {
-        // Person deletion events are handled directly - no need for async communication
-        log.debug("Person {} deleted - snapshot cleanup can be handled separately if needed", personId);
+        try {
+            Map<String, Object> deletionEvent = new HashMap<>();
+            deletionEvent.put("eventId", UUID.randomUUID().toString());
+            deletionEvent.put("eventType", "PERSON_DELETED");
+            deletionEvent.put("timestamp", Instant.now().toString());
+            deletionEvent.put("personId", personId.toString());
+            deletionEvent.put("removedAt", Instant.now().toString());
+
+            outboxService.saveEvent("PERSON", personId.toString(), "PERSON_DELETED", deletionEvent);
+        } catch (Exception e) {
+            log.error("Failed to save person deleted event to outbox for person {}", personId, e);
+        }
     }
 
     private Map<String, Object> calculateChanges(PersonData oldData, PersonData newData) {

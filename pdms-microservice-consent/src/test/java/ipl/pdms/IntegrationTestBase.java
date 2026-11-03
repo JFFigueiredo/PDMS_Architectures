@@ -21,6 +21,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Testcontainers
 public abstract class IntegrationTestBase {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private ipl.pdms.outbox.runtime.RuntimeOutboxControl runtimePermission;
+
+    @BeforeEach
+    void enableIsolatedRuntimePermission() {
+        if (runtimePermission.status().enabled()) return;
+        var state = runtimePermission.status();
+        var change = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode()
+                .put("expectedVersion", state.snapshot().version()).put("expectedInstanceId", state.instanceId())
+                .put("requestId", java.util.UUID.randomUUID().toString()).put("reason", "Isolated integration fixture")
+                .put("enabled", true);
+        runtimePermission.change(change);
+    }
+
     private static final String BASE_URL = "http://localhost";
 
     @LocalServerPort

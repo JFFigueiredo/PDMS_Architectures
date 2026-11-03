@@ -21,8 +21,11 @@ import java.util.UUID;
 public class SnapshotServiceClient {
     
     private final WebClient webClient;
+    private final ipl.pdms.outbox.runtime.RuntimeOutboxControl runtime;
     
-    public SnapshotServiceClient(@Value("${services.snapshot.url:http://localhost:8082}") String snapshotServiceUrl) {
+    public SnapshotServiceClient(@Value("${services.snapshot.url:http://localhost:8082}") String snapshotServiceUrl,
+                                 ipl.pdms.outbox.runtime.RuntimeOutboxControl runtime) {
+        this.runtime = runtime;
         this.webClient = WebClient.builder()
                 .baseUrl(snapshotServiceUrl)
                 .build();
@@ -45,6 +48,8 @@ public class SnapshotServiceClient {
             
             request.retrieve()
                     .bodyToMono(Void.class)
+                    .doOnSubscribe(subscription -> runtime.retainBusinessWork())
+                    .doFinally(signal -> runtime.exitBusiness())
                     .subscribe(
                             result -> log.debug("Successfully created snapshot for person {}", personId),
                             error -> log.error("Failed to create snapshot for person {}: {}", personId, error.getMessage())

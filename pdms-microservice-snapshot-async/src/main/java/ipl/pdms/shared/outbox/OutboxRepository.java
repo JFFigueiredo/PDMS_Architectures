@@ -3,6 +3,8 @@ package ipl.pdms.shared.outbox;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.postgresql.util.PGobject;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import java.util.Set;
 import org.springframework.stereotype.Repository;
 
 import java.util.HashMap;
@@ -15,10 +17,12 @@ public class OutboxRepository {
     
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
+    private final NamedParameterJdbcTemplate named;
     
     public OutboxRepository(JdbcTemplate jdbc, ObjectMapper mapper) {
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.named = new NamedParameterJdbcTemplate(jdbc);
     }
     
     public void save(String aggregateType, String aggregateId, String eventType, Map<String, Object> payload) {
@@ -34,8 +38,10 @@ public class OutboxRepository {
         }
     }
     
-    public List<Map<String, Object>> findPending(int limit) {
-        return jdbc.query("SELECT id, aggregate_id, event_type, payload FROM outbox WHERE processing_status = 'PENDING' ORDER BY created_at LIMIT ? FOR UPDATE SKIP LOCKED",
+    public List<Map<String, Object>> findPending(int limit, Set<String> allowedTypes) {
+        if (allowedTypes.isEmpty()) return List.of();
+        return named.query("SELECT id, aggregate_id, event_type, payload FROM outbox WHERE processing_status = 'PENDING' AND event_type IN (:types) ORDER BY created_at, id LIMIT :limit FOR UPDATE SKIP LOCKED",
+            Map.of("types", allowedTypes, "limit", limit),
             (rs, rowNum) -> {
                 try {
                     UUID id = rs.getObject("id", UUID.class);
@@ -49,7 +55,7 @@ public class OutboxRepository {
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
-            }, limit);
+            });
     }
     
     public void markCompleted(UUID id) {
@@ -75,34 +81,26 @@ public class OutboxRepository {
      * @param timeoutMinutes how many minutes an event can be in PROCESSING status before being reset
      * @return number of events reset
      */
-    public int resetStuckProcessingEvents(int timeoutMinutes) {
-        return jdbc.update(
-            "UPDATE outbox SET processing_status = 'PENDING', processed_at = NULL " +
-            "WHERE processing_status = 'PROCESSING' " +
-            "AND created_at < CURRENT_TIMESTAMP - (INTERVAL '1 minute' * ?)",
-            timeoutMinutes
-        );
+    public int resetStuckProcessingEvents(int timeoutMinutes, Set<String> allowedTypes) {
+        if (allowedTypes.isEmpty()) return 0;
+        return named.update("""
+            UPDATE outbox SET processing_status = 'PENDING', processed_at = NULL
+            WHERE processing_status = 'PROCESSING' AND event_type IN (:types)
+              AND created_at < CURRENT_TIMESTAMP - (INTERVAL '1 minute' * :timeout)
+            """, Map.of("types", allowedTypes, "timeout", timeoutMinutes));
     }
-    
-    /**
-     * Retry failed events by resetting them to PENDING status.
-     * Only retries events that haven't been retried too many times.
-     * 
-     * @param limit maximum number of events to retry
-     * @return number of events reset to PENDING
-     */
-    public int retryFailedEvents(int limit) {
-        // Reset failed events that are older than 5 minutes back to PENDING
-        // This allows for transient failures to be retried
-        return jdbc.update(
-            "UPDATE outbox SET processing_status = 'PENDING', processed_at = NULL " +
-            "WHERE processing_status = 'FAILED' " +
-            "AND processed_at < CURRENT_TIMESTAMP - INTERVAL '5 minutes' " +
-            "AND id IN (SELECT id FROM outbox WHERE processing_status = 'FAILED' ORDER BY processed_at LIMIT ?)",
-            limit
-        );
+
+    public int retryFailedEvents(int limit, Set<String> allowedTypes) {
+        if (allowedTypes.isEmpty()) return 0;
+        return named.update("""
+            UPDATE outbox SET processing_status = 'PENDING', processed_at = NULL
+            WHERE processing_status = 'FAILED' AND event_type IN (:types)
+              AND id IN (
+                SELECT id FROM outbox
+                WHERE processing_status = 'FAILED' AND event_type IN (:types)
+                  AND processed_at < CURRENT_TIMESTAMP - INTERVAL '5 minutes'
+                ORDER BY processed_at, id LIMIT :limit FOR UPDATE SKIP LOCKED
+              )
+            """, Map.of("types", allowedTypes, "limit", limit));
     }
-    
 }
-
-

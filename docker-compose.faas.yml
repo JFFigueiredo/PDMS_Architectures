@@ -11,6 +11,8 @@ services:
     image: pdms-faas:latest
     container_name: pdms-faas
     environment:
+      PDMS_OUTBOX_ADMIN_TOKEN: ${PDMS_OUTBOX_ADMIN_TOKEN:-}
+      SPRING_FLYWAY_ENABLED: ${PDMS_FLYWAY_ENABLED:-false}
       JWT_PUBLIC_KEY_PATH: file:/app/jwt-keys/public-key.pem
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/pdms
       SPRING_DATASOURCE_USERNAME: pdms_user

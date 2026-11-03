@@ -14,7 +14,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.springframework.transaction.annotation.Transactional;
+import ipl.pdms.outbox.runtime.RuntimeOutboxControl;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class OutboxService {
     
     private final OutboxRepository repo;
+    private final RuntimeOutboxControl runtimeControl;
     private final KafkaTemplate<String, Object> kafka;
     private final ConsentLedgerAnchorService consentLedgerAnchorService;
     
@@ -42,10 +44,17 @@ public class OutboxService {
     }
     
     @Scheduled(fixedDelay = 100)
-    @Transactional
     public void processOutboxEvents() {
         try {
-            List<Map<String, Object>> pendingEvents = repo.findPending(batchSize);
+            runtimeControl.withSharedEvents(this::processAllowedEvents);
+        } catch (Exception e) {
+            log.error("Error processing guarded outbox events", e);
+        }
+    }
+
+    private void processAllowedEvents(Set<String> allowedTypes) {
+        try {
+            List<Map<String, Object>> pendingEvents = repo.findPending(runtimeControl.batchLimit(batchSize), allowedTypes);
             if (pendingEvents.isEmpty()) {
                 return;
             }
@@ -97,10 +106,12 @@ public class OutboxService {
     @Scheduled(fixedDelay = 60000) // Run every minute
     public void resetStuckProcessingEvents() {
         try {
-            int resetCount = repo.resetStuckProcessingEvents(processingTimeoutMinutes);
-            if (resetCount > 0) {
-                log.warn("Reset {} events that were stuck in PROCESSING status", resetCount);
-            }
+            runtimeControl.withSharedEvents(allowedTypes -> {
+                int resetCount = repo.resetStuckProcessingEvents(processingTimeoutMinutes, allowedTypes);
+                if (resetCount > 0) {
+                    log.warn("Reset {} events that were stuck in PROCESSING status", resetCount);
+                }
+            });
         } catch (Exception e) {
             log.error("Error resetting stuck processing events", e);
         }
@@ -112,10 +123,12 @@ public class OutboxService {
     @Scheduled(fixedDelay = 300000) // Run every 5 minutes
     public void retryFailedEvents() {
         try {
-            int retryCount = repo.retryFailedEvents(100); // Retry up to 100 failed events
-            if (retryCount > 0) {
-                log.info("Retrying {} failed outbox events", retryCount);
-            }
+            runtimeControl.withSharedEvents(allowedTypes -> {
+                int retryCount = repo.retryFailedEvents(100, allowedTypes); // Retry up to 100 failed events
+                if (retryCount > 0) {
+                    log.info("Retrying {} failed outbox events", retryCount);
+                }
+            });
         } catch (Exception e) {
             log.error("Error retrying failed events", e);
         }

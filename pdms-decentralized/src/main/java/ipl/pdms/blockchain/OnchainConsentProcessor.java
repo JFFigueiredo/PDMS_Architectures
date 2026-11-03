@@ -3,6 +3,7 @@ package ipl.pdms.blockchain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ipl.pdms.domain.Consent;
 import ipl.pdms.ledger.ConsentPayloadHasher;
+import ipl.pdms.outbox.runtime.RuntimeOutboxControl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -11,6 +12,9 @@ import org.springframework.stereotype.Service;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -25,18 +29,38 @@ public class OnchainConsentProcessor {
     private final BesuConsentAnchorClient besuClient;
     private final ConsentPayloadHasher consentPayloadHasher;
     private final ObjectMapper objectMapper;
+    private final RuntimeOutboxControl runtimeControl;
 
     @Scheduled(fixedDelayString = "${pdms.blockchain.scheduled-fixed-delay-ms:500}")
     public void processPending() {
+        // One row per transaction: policy changes may take effect between anchors.
+        Set<UUID> attempted = new HashSet<>();
+        for (int i = 0; i < BATCH; i++) {
+            boolean[] found = {false};
+            try {
+                runtimeControl.withOnchainEvents(types -> found[0] = processAllowed(types, attempted));
+            } catch (Exception e) {
+                log.error("Error processing guarded on-chain outbox", e);
+                return;
+            }
+            if (!found[0]) return;
+        }
+    }
+
+    private boolean processAllowed(Set<String> allowedTypes, Set<UUID> attempted) {
+        List<OnchainConsentOutboxRepository.PendingOnchainRow> pending =
+                outboxRepository.findPending(1, allowedTypes, Set.copyOf(attempted));
+        if (pending.isEmpty()) return false;
         try {
             besuClient.ensureContractDeployed();
         } catch (Exception e) {
             log.warn("Besu not ready (deploy skipped this tick): {}", e.getMessage());
-            return;
+            return false;
         }
 
-        List<OnchainConsentOutboxRepository.PendingOnchainRow> pending = outboxRepository.findPending(BATCH);
         for (OnchainConsentOutboxRepository.PendingOnchainRow row : pending) {
+            // Failed rows stay PENDING, but must wait for the next scheduled invocation.
+            attempted.add(row.id());
             try {
                 Consent consent = objectMapper.readValue(row.consentJson(), Consent.class);
                 String payloadHash = consentPayloadHasher.payloadHash(row.anchorType(), row.personId(), consent);
@@ -52,6 +76,7 @@ public class OnchainConsentProcessor {
                 handleFailure(row.id(), e);
             }
         }
+        return true;
     }
 
     private void handleFailure(java.util.UUID id, Exception e) {

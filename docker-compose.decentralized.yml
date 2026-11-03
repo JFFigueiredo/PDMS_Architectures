@@ -15,6 +15,8 @@ services:
     volumes:
       - ./pdms-monolith/src/main/resources/jwt-keys:/app/jwt-keys:ro
     environment:
+      PDMS_OUTBOX_ADMIN_TOKEN: ${PDMS_OUTBOX_ADMIN_TOKEN:-}
+      SPRING_FLYWAY_ENABLED: ${PDMS_FLYWAY_ENABLED:-false}
       JWT_PUBLIC_KEY_PATH: file:/app/jwt-keys/public-key.pem
       SPRING_DATASOURCE_URL: jdbc:postgresql://<db-host>:5432/pdms
       SPRING_DATASOURCE_USERNAME: pdms_user
